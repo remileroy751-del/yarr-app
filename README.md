@@ -8,24 +8,39 @@ commander directement via WhatsApp.
 
 ## ✨ Fonctionnalités
 
-- **Comptes utilisateurs** : inscription / connexion par numéro de téléphone et mot de
-  passe, session conservée entre les ouvertures de l'application.
-- **Ma boutique** : chaque compte peut créer une boutique (nom + numéro WhatsApp) et y
-  publier des produits (photo, nom, description, prix en FCFA, catégorie). **Limite de
-  10 produits** pour le forfait gratuit ; au-delà, un écran "Forfaits" invite à
-  souscrire à un forfait supérieur (Standard : 30 produits, Pro : 100 produits — la
-  souscription/paiement n'est pas encore branchée, à prévoir dans une prochaine mise à
-  jour).
-- **Acheter** : fil d'actualité affichant les produits publiés par **toutes** les
-  boutiques de la plateforme, filtrables par catégorie. Le prix apparaît directement
-  sous la photo du produit. Un clic ouvre la fiche produit avec sa description complète
-  et deux boutons : **Acheter** (ouvre WhatsApp avec un message pré-rempli directement
-  vers le vendeur) et **Ajouter au panier**.
+- **Onboarding pays/ville** : à la toute première ouverture, l'utilisateur choisit son
+  **pays** (Bénin, Burkina Faso, Côte d'Ivoire, Togo — avec drapeau) puis sa **ville**
+  dans une liste alphabétique qui se réactualise automatiquement selon le pays choisi.
+  Il clique sur **Continuer** pour passer à l'inscription (Prénom, Sexe F/M, numéro
+  WhatsApp avec indicatif au format `0022890000000`, mot de passe).
+- **Comptes utilisateurs** : inscription / connexion par **numéro WhatsApp** (identifiant
+  unique) et mot de passe, session conservée entre les ouvertures de l'application.
+- **Ma boutique** : chaque compte peut créer une boutique (pays/ville repris
+  automatiquement du profil) et y publier des produits (photo, nom, description, prix
+  en FCFA, catégorie). **Limite de 5 produits actifs** pour le forfait gratuit.
+  - Tout produit publié gratuitement se **désactive automatiquement au bout de 14
+    jours** ; à l'ouverture de sa boutique, le vendeur voit une **notification**
+    l'invitant à vérifier ses produits.
+  - Sous un produit **désactivé** : boutons **Remettre en vente** / **Supprimer**.
+  - Sous un produit **actif** : boutons **Désactiver le produit** / **Supprimer
+    définitivement**. Un produit désactivé reste visible par le vendeur (jamais
+    supprimé automatiquement) — utile pour garder trace des articles déjà vendus.
+  - Au-delà de la limite, un écran "Forfaits" invite à souscrire à un forfait
+    supérieur (Standard : 30 produits, Pro : 100 produits — souscription/paiement pas
+    encore branchés).
+- **Acheter** : fil affichant les produits **actifs** de toutes les boutiques,
+  filtrables par catégorie, **triés en priorité par la ville de l'acheteur**. Sous le
+  prix de chaque produit s'affiche en miniature sa ville de disponibilité (ex.
+  "Disponible à Lomé").
+- **Recherche (loupe)** : recherche par mot-clé. Les résultats de la **même ville** que
+  l'acheteur s'affichent en premier ; un bouton **"Afficher les produits disponibles
+  dans d'autres villes"** en bas de liste ouvre la liste complète des villes du pays,
+  sélectionnables (une ou plusieurs) pour élargir la recherche.
 - **Panier** : les articles sont regroupés par boutique (puisque chaque boutique a son
   propre numéro WhatsApp) ; la validation envoie un message WhatsApp récapitulatif à
   chaque vendeur concerné.
-- **Mon profil** : informations du compte connecté, aperçu de sa boutique et de son
-  forfait, déconnexion.
+- **Mon profil** : informations du compte connecté (prénom, sexe, pays/ville, numéro
+  WhatsApp), aperçu de sa boutique et de son forfait, déconnexion.
 - **Menu du bas** (dans l'ordre demandé) : **Mon profil**, **Ma boutique**, **Acheter**.
 - **Design** : thème Material 3 aux couleurs de votre logo (orange `#F7941D` / vert
   `#1E8E3E`), icône de l'app générée à partir de vos fichiers, cartes produits au
@@ -36,10 +51,10 @@ commander directement via WhatsApp.
 
 ## 🔑 Comptes de test (données de démonstration)
 
-| Boutique       | Téléphone     | Mot de passe |
-|----------------|---------------|--------------|
-| Chic & Style   | 22890000001   | test1234     |
-| Yaar Électro   | 22890000002   | test1234     |
+| Boutique       | Numéro WhatsApp   | Mot de passe | Ville          |
+|----------------|--------------------|--------------|----------------|
+| Chic & Style   | 0022890000001      | test1234     | Lomé (Togo)    |
+| Yaar Électro   | 0022990000002      | test1234     | Cotonou (Bénin)|
 
 Ces deux boutiques possèdent déjà des produits (sac à main, veste, chaussures pour
 Chic & Style ; tondeuse, mixeur, mini-frigo pour Yaar Électro) construits à partir des
@@ -58,10 +73,12 @@ propre base de données locale, isolée des autres.
 Pour une vraie plateforme où les boutiques créées par un vendeur sont visibles par tous
 les acheteurs sur tous les téléphones, il faut brancher un **backend partagé** — la
 piste la plus rapide est **Firebase** (Firebase Authentication pour les comptes,
-Firestore ou Realtime Database pour les boutiques/produits, Firebase Storage pour les
-photos). La couche `data/YaarRepository.kt` a été conçue pour isoler cette logique :
-c'est le seul fichier à réécrire pour brancher un vrai backend, sans toucher aux écrans.
-On peut prévoir cette migration ensemble dans une prochaine mise à jour.
+Firestore pour les boutiques/produits, Firebase Storage pour les photos). La couche
+`data/YaarRepository.kt` a été conçue pour isoler cette logique : c'est le seul fichier
+à réécrire pour brancher un vrai backend, sans toucher aux écrans.
+**Voir le guide détaillé étape par étape : [`BACKEND_FIREBASE.md`](./BACKEND_FIREBASE.md)**
+(création du projet Firebase, dépendances Gradle, règles de sécurité, requêtes triées
+par ville...).
 
 ## 🗂 Structure du projet
 
@@ -71,19 +88,23 @@ app/src/main/java/com/yaarapp/app/
 ├── YaarApplication.kt           # Initialise la base de données et amorce les données de démo
 ├── data/
 │   ├── User.kt, Shop.kt, Product.kt, CartItem.kt     # Modèles (entités Room)
+│   ├── Location.kt              # Enum Country (pays + drapeau + indicatif) + CityRepository
+│   ├── Sex.kt                   # Enum Sexe (F / M)
 │   ├── UserDao.kt, ShopDao.kt, ProductDao.kt, CartDao.kt
 │   ├── YaarDatabase.kt          # Base Room (4 tables)
 │   ├── YaarRepository.kt        # Authentification, boutique, marketplace, panier
 │   ├── SessionManager.kt        # Session (DataStore) — utilisateur connecté
 │   └── SeedData.kt              # Comptes/boutiques/produits de démonstration
-├── nav/                         # Routes + NavHost (auth → onglets principaux)
+├── nav/                         # Routes + NavHost (onboarding → auth → onglets principaux)
 ├── ui/
 │   ├── components/               # ProductCard, barre de navigation du bas, filtres
-│   ├── screens/                  # Login, SignUp, Marketplace, Détail produit, Panier,
-│   │                              # Ma boutique, Ajout produit, Profil, Forfaits, Splash
+│   ├── screens/                  # Onboarding (pays/ville), Login, SignUp, Marketplace,
+│   │                              # Recherche, Détail produit, Panier, Ma boutique,
+│   │                              # Ajout produit, Profil, Forfaits, Splash
 │   └── theme/                    # Couleurs, typographie, thème Material 3
 └── util/
     ├── WhatsAppHelper.kt         # Construction des liens wa.me (par boutique)
+    ├── PhoneFormat.kt            # Formatage du numéro WhatsApp (00 + indicatif + numéro)
     ├── ImageStorage.kt           # Copie des photos importées + résolution des images
     └── PasswordHasher.kt         # Hachage simple des mots de passe (démo locale)
 ```

@@ -2,10 +2,12 @@ package com.yaarapp.app.nav
 
 object Routes {
     const val SPLASH = "splash"
+    const val ONBOARDING_LOCATION = "onboarding_location" // choix pays + ville, avant inscription
     const val LOGIN = "login"
     const val SIGNUP = "signup"
 
     const val MARKETPLACE = "marketplace"          // "Acheter"
+    const val SEARCH = "search"                     // recherche par mot-clé + ville
     const val PRODUCT_DETAIL = "product/{productId}"
     const val CART = "cart"
 

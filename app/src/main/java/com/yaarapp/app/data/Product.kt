@@ -3,6 +3,10 @@ package com.yaarapp.app.data
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/** Durée d'exposition gratuite d'un produit avant désactivation automatique. */
+const val FREE_LISTING_DURATION_DAYS = 14
+const val FREE_LISTING_DURATION_MS = FREE_LISTING_DURATION_DAYS * 24L * 60L * 60L * 1000L
+
 @Entity(tableName = "products")
 data class Product(
     @PrimaryKey(autoGenerate = true)
@@ -19,5 +23,24 @@ data class Product(
      */
     val imageUrl: String,
     val category: String,
-    val createdAt: Long = System.currentTimeMillis()
-)
+    /** Pays et ville où le produit est disponible (copiés de la boutique à la publication). */
+    val country: Country,
+    val city: String,
+    /**
+     * true = produit visible par les acheteurs dans "Acheter".
+     * false = désactivé (automatiquement après 14 jours, ou manuellement par le vendeur).
+     * Un produit désactivé n'est jamais supprimé automatiquement : il reste visible
+     * par le responsable de la boutique jusqu'à ce qu'il le remette en vente ou le supprime.
+     */
+    val isActive: Boolean = true,
+    /** Date de première publication (ne change jamais). */
+    val createdAt: Long = System.currentTimeMillis(),
+    /**
+     * Date de (re)mise en vente : réinitialisée à chaque republication.
+     * La désactivation automatique se déclenche 14 jours après cette date.
+     */
+    val activatedAt: Long = System.currentTimeMillis()
+) {
+    fun expiresAt(): Long = activatedAt + FREE_LISTING_DURATION_MS
+    fun isExpired(now: Long = System.currentTimeMillis()): Boolean = isActive && now >= expiresAt()
+}

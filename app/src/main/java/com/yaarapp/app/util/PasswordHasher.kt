@@ -18,5 +18,5 @@ object PasswordHasher {
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
-    fun matches(rawPassword: String, hash: String): Boolean = hash(rawPassword) == hash
+    fun matches(rawPassword: String, hashedPassword: String): Boolean = hash(rawPassword) == hashedPassword
 }

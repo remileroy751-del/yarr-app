@@ -11,7 +11,7 @@ sealed class AuthResult {
 
 sealed class AddProductResult {
     object Success : AddProductResult()
-    /** Le vendeur a atteint la limite de produits de son forfait actuel. */
+    /** Le vendeur a atteint la limite de produits ACTIFS de son forfait actuel. */
     data class LimitReached(val plan: Plan) : AddProductResult()
     data class Error(val message: String) : AddProductResult()
 }
@@ -43,27 +43,43 @@ class YaarRepository(context: Context) {
 
     // ---------- Authentification (locale, voir data/User.kt) ----------
 
-    suspend fun signUp(fullName: String, phone: String, password: String, whatsappNumber: String): AuthResult {
-        if (fullName.isBlank() || phone.isBlank() || password.length < 4) {
+    /**
+     * @param whatsappNumber déjà normalisé au format "00" + indicatif + numéro local
+     * (voir [com.yaarapp.app.util.PhoneFormatter]).
+     */
+    suspend fun signUp(
+        firstName: String,
+        sex: Sex,
+        country: Country,
+        city: String,
+        whatsappNumber: String,
+        password: String
+    ): AuthResult {
+        if (firstName.isBlank() || city.isBlank() || password.length < 4) {
             return AuthResult.Error("Merci de remplir tous les champs (mot de passe : 4 caractères minimum).")
         }
-        if (userDao.findByPhone(phone) != null) {
-            return AuthResult.Error("Un compte existe déjà avec ce numéro de téléphone.")
+        if (whatsappNumber.length < 10) {
+            return AuthResult.Error("Le numéro WhatsApp saisi semble incomplet.")
+        }
+        if (userDao.findByWhatsapp(whatsappNumber) != null) {
+            return AuthResult.Error("Un compte existe déjà avec ce numéro WhatsApp.")
         }
         val user = User(
-            fullName = fullName,
-            phone = phone,
-            passwordHash = PasswordHasher.hash(password),
-            whatsappNumber = whatsappNumber.ifBlank { phone }
+            firstName = firstName,
+            sex = sex,
+            country = country,
+            city = city,
+            whatsappNumber = whatsappNumber,
+            passwordHash = PasswordHasher.hash(password)
         )
         val id = userDao.insert(user)
         session.setCurrentUser(id.toInt())
         return AuthResult.Success(user.copy(id = id.toInt()))
     }
 
-    suspend fun login(phone: String, password: String): AuthResult {
-        val user = userDao.findByPhone(phone)
-            ?: return AuthResult.Error("Aucun compte trouvé avec ce numéro.")
+    suspend fun login(whatsappNumber: String, password: String): AuthResult {
+        val user = userDao.findByWhatsapp(whatsappNumber)
+            ?: return AuthResult.Error("Aucun compte trouvé avec ce numéro WhatsApp.")
         if (!PasswordHasher.matches(password, user.passwordHash)) {
             return AuthResult.Error("Mot de passe incorrect.")
         }
@@ -81,8 +97,15 @@ class YaarRepository(context: Context) {
 
     fun observeMyShop(ownerId: Int): Flow<Shop?> = shopDao.observeShopForOwner(ownerId)
 
-    suspend fun createShop(ownerId: Int, name: String, whatsappNumber: String): Shop {
-        val shop = Shop(ownerId = ownerId, name = name, whatsappNumber = whatsappNumber)
+    /** La boutique hérite automatiquement du pays et de la ville du profil du vendeur. */
+    suspend fun createShop(owner: User, name: String, whatsappNumber: String): Shop {
+        val shop = Shop(
+            ownerId = owner.id,
+            name = name,
+            whatsappNumber = whatsappNumber,
+            country = owner.country,
+            city = owner.city
+        )
         val id = shopDao.insert(shop)
         return shop.copy(id = id.toInt())
     }
@@ -100,8 +123,8 @@ class YaarRepository(context: Context) {
         if (name.isBlank() || description.isBlank() || imageUrl.isBlank() || price <= 0) {
             return AddProductResult.Error("Merci de remplir tous les champs (photo, nom, description, prix).")
         }
-        val currentCount = productDao.countForShop(shop.id)
-        if (currentCount >= shop.plan.maxProducts) {
+        val activeCount = productDao.countActiveForShop(shop.id)
+        if (activeCount >= shop.plan.maxProducts) {
             return AddProductResult.LimitReached(shop.plan)
         }
         productDao.insert(
@@ -111,21 +134,49 @@ class YaarRepository(context: Context) {
                 description = description,
                 price = price,
                 imageUrl = imageUrl,
-                category = category.ifBlank { "Divers" }
+                category = category.ifBlank { "Divers" },
+                country = shop.country,
+                city = shop.city
             )
         )
         return AddProductResult.Success
     }
 
-    suspend fun updateProduct(product: Product) = productDao.update(product)
-
     suspend fun deleteProduct(product: Product) = productDao.delete(product)
 
-    suspend fun productCountForShop(shopId: Int): Int = productDao.countForShop(shopId)
+    /** Le vendeur désactive manuellement un produit encore actif (ex : produit vendu). */
+    suspend fun deactivateProduct(product: Product) {
+        productDao.update(product.copy(isActive = false))
+    }
+
+    /**
+     * Remet un produit désactivé en vente : réactive et réinitialise le compteur de 14 jours.
+     * Vérifie que la boutique n'a pas déjà atteint sa limite de produits actifs.
+     */
+    suspend fun reactivateProduct(product: Product, shop: Shop): AddProductResult {
+        val activeCount = productDao.countActiveForShop(shop.id)
+        if (activeCount >= shop.plan.maxProducts) {
+            return AddProductResult.LimitReached(shop.plan)
+        }
+        productDao.update(product.copy(isActive = true, activatedAt = System.currentTimeMillis()))
+        return AddProductResult.Success
+    }
+
+    suspend fun productCountForShop(shopId: Int): Int = productDao.countActiveForShop(shopId)
+
+    /**
+     * À appeler chaque fois que le vendeur ouvre sa boutique : désactive automatiquement
+     * tout produit actif dont les 14 jours d'exposition gratuite sont dépassés, et
+     * retourne le nombre de produits concernés (pour afficher la notification).
+     */
+    suspend fun deactivateExpiredProducts(shopId: Int): Int {
+        val cutoff = System.currentTimeMillis() - FREE_LISTING_DURATION_MS
+        return productDao.deactivateExpired(shopId, cutoff)
+    }
 
     // ---------- Marketplace ("Acheter") ----------
 
-    fun observeMarketplaceProducts(): Flow<List<Product>> = productDao.observeAll()
+    fun observeMarketplaceProducts(): Flow<List<Product>> = productDao.observeAllActive()
 
     fun observeCategories(): Flow<List<String>> = productDao.observeCategories()
 

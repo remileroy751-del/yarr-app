@@ -128,6 +128,11 @@ fun ProductDetailScreen(
                     )
                 }
                 Text(
+                    text = "Disponible à ${p.city}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+                Text(
                     text = p.description,
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(top = 16.dp)

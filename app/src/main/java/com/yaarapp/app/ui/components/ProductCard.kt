@@ -62,6 +62,13 @@ fun ProductCard(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
+                    text = "Disponible à ${product.city}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
                     text = product.name,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,

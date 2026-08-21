@@ -38,7 +38,7 @@ fun LoginScreen(
     onLoggedIn: () -> Unit,
     onGoToSignUp: () -> Unit
 ) {
-    var phone by remember { mutableStateOf("") }
+    var whatsapp by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val error by viewModel.authError.collectAsState()
 
@@ -63,9 +63,9 @@ fun LoginScreen(
         )
 
         OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("Numéro de téléphone") },
+            value = whatsapp,
+            onValueChange = { whatsapp = it.filter { c -> c.isDigit() } },
+            label = { Text("Numéro WhatsApp (ex : 0022890000000)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             modifier = Modifier.fillMaxWidth()
         )
@@ -90,7 +90,7 @@ fun LoginScreen(
         }
 
         Button(
-            onClick = { viewModel.login(phone.trim(), password) { onLoggedIn() } },
+            onClick = { viewModel.login(whatsapp.trim(), password) { onLoggedIn() } },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 20.dp),
@@ -110,7 +110,7 @@ fun LoginScreen(
         }
 
         Text(
-            "Compte de test : 22890000001 / test1234",
+            "Compte de test : 0022890000001 / test1234",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             modifier = Modifier.padding(top = 24.dp)

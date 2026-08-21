@@ -11,16 +11,21 @@ import androidx.room.PrimaryKey
  * de tester tout le parcours (inscription, connexion, boutique, achats) sans backend.
  * Pour une mise en production réelle où plusieurs utilisateurs doivent voir les mêmes
  * boutiques/produits depuis des téléphones différents, il faudra remplacer cette couche
- * par un vrai service (Firebase Auth + Firestore, ou une API avec base de données
- * centrale) — voir le README pour les pistes de migration.
+ * par un vrai service en ligne — voir /BACKEND_FIREBASE.md pour la marche à suivre.
+ *
+ * whatsappNumber est l'identifiant de connexion (unique) : il est stocké au format
+ * "00" + indicatif pays + numéro local (ex : "0022890000000" pour un numéro togolais),
+ * afin de faciliter l'envoi automatique de messages WhatsApp vers ce numéro.
  */
 @Entity(tableName = "users")
 data class User(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val fullName: String,
-    val phone: String,
-    val passwordHash: String,
+    val firstName: String,
+    val sex: Sex,
+    val country: Country,
+    val city: String,
     val whatsappNumber: String,
+    val passwordHash: String,
     val createdAt: Long = System.currentTimeMillis()
 )

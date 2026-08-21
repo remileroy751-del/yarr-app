@@ -2,7 +2,6 @@ package com.yaarapp.app.nav
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.weight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -21,9 +20,11 @@ import com.yaarapp.app.ui.screens.CartScreen
 import com.yaarapp.app.ui.screens.LoginScreen
 import com.yaarapp.app.ui.screens.MarketplaceScreen
 import com.yaarapp.app.ui.screens.MyShopScreen
+import com.yaarapp.app.ui.screens.OnboardingLocationScreen
 import com.yaarapp.app.ui.screens.PlansScreen
 import com.yaarapp.app.ui.screens.ProductDetailScreen
 import com.yaarapp.app.ui.screens.ProfileScreen
+import com.yaarapp.app.ui.screens.SearchScreen
 import com.yaarapp.app.ui.screens.SignUpScreen
 import com.yaarapp.app.ui.screens.SplashScreen
 import com.yaarapp.app.viewmodel.YaarViewModel
@@ -69,7 +70,14 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                                 popUpTo(Routes.LOGIN) { inclusive = true }
                             }
                         },
-                        onGoToSignUp = { navController.navigate(Routes.SIGNUP) }
+                        onGoToSignUp = { navController.navigate(Routes.ONBOARDING_LOCATION) }
+                    )
+                }
+                // Premier écran du parcours d'inscription : choix du pays puis de la ville.
+                composable(Routes.ONBOARDING_LOCATION) {
+                    OnboardingLocationScreen(
+                        viewModel = viewModel,
+                        onContinue = { navController.navigate(Routes.SIGNUP) }
                     )
                 }
                 composable(Routes.SIGNUP) {
@@ -80,7 +88,8 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                                 popUpTo(Routes.LOGIN) { inclusive = true }
                             }
                         },
-                        onGoToLogin = { navController.popBackStack() }
+                        onGoToLogin = { navController.popBackStack(Routes.LOGIN, inclusive = false) },
+                        onEditLocation = { navController.popBackStack() }
                     )
                 }
 
@@ -90,7 +99,17 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                         onProductClick = { product ->
                             navController.navigate(Routes.productDetail(product.id))
                         },
-                        onCartClick = { navController.navigate(Routes.CART) }
+                        onCartClick = { navController.navigate(Routes.CART) },
+                        onSearchClick = { navController.navigate(Routes.SEARCH) }
+                    )
+                }
+                composable(Routes.SEARCH) {
+                    SearchScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onProductClick = { product ->
+                            navController.navigate(Routes.productDetail(product.id))
+                        }
                     )
                 }
                 composable(

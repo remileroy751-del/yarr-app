@@ -47,9 +47,17 @@ object WhatsAppHelper {
 
     private fun formatPrice(value: Double): String = "${value.toLong()} FCFA"
 
+    /**
+     * Les numéros sont stockés au format "00" + indicatif + numéro (ex : "0022890000000"),
+     * pratique pour les envois automatiques. Un lien wa.me a besoin du numéro SANS le "00"
+     * ni le "+" (ex : "22890000000").
+     */
+    private fun toWaLinkNumber(number: String): String =
+        number.trim().removePrefix("+").let { if (it.startsWith("00")) it.substring(2) else it }
+
     private fun openWhatsApp(context: Context, number: String, message: String) {
         val encoded = URLEncoder.encode(message, "UTF-8").replace("+", "%20")
-        val url = "https://wa.me/$number?text=$encoded"
+        val url = "https://wa.me/${toWaLinkNumber(number)}?text=$encoded"
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
         try {
             context.startActivity(intent)

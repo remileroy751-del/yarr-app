@@ -4,28 +4,32 @@ import com.yaarapp.app.util.PasswordHasher
 
 /**
  * Données de démonstration utilisées uniquement au tout premier lancement de
- * l'application (base de données vide). Elles servent à tester le parcours
- * "Acheter" avec de vrais produits dès l'installation, sans devoir créer une
- * boutique manuellement au préalable.
+ * l'application (base de données vide). Deux boutiques dans deux villes/pays
+ * différents, pour que le tri "produits de ma ville en priorité" (Marketplace
+ * et Recherche) soit visible dès le premier essai.
  *
- * Identifiants de test (voir README) :
- *   Boutique "Chic & Style"   → téléphone 22890000001 / mot de passe test1234
- *   Boutique "Yaar Électro"   → téléphone 22890000002 / mot de passe test1234
+ * Comptes de test (voir README) :
+ *   Boutique "Chic & Style" (Lomé, Togo)     → WhatsApp 0022890000001 / mot de passe test1234
+ *   Boutique "Yaar Électro" (Cotonou, Bénin) → WhatsApp 0022990000002 / mot de passe test1234
  */
 object SeedData {
 
     fun demoUsers(): List<User> = listOf(
         User(
-            fullName = "Ama (Chic & Style)",
-            phone = "22890000001",
-            passwordHash = PasswordHasher.hash("test1234"),
-            whatsappNumber = "22890000001"
+            firstName = "Ama",
+            sex = Sex.F,
+            country = Country.TOGO,
+            city = "Lomé",
+            whatsappNumber = "0022890000001",
+            passwordHash = PasswordHasher.hash("test1234")
         ),
         User(
-            fullName = "Kossi (Yaar Électro)",
-            phone = "22890000002",
-            passwordHash = PasswordHasher.hash("test1234"),
-            whatsappNumber = "22890000002"
+            firstName = "Kossi",
+            sex = Sex.M,
+            country = Country.BENIN,
+            city = "Cotonou",
+            whatsappNumber = "0022990000002",
+            passwordHash = PasswordHasher.hash("test1234")
         )
     )
 
@@ -33,13 +37,17 @@ object SeedData {
         Shop(
             ownerId = fashionOwnerId,
             name = "Chic & Style",
-            whatsappNumber = "22890000001",
+            whatsappNumber = "0022890000001",
+            country = Country.TOGO,
+            city = "Lomé",
             plan = Plan.GRATUIT
         ),
         Shop(
             ownerId = electroOwnerId,
             name = "Yaar Électro",
-            whatsappNumber = "22890000002",
+            whatsappNumber = "0022990000002",
+            country = Country.BENIN,
+            city = "Cotonou",
             plan = Plan.GRATUIT
         )
     )
@@ -51,7 +59,9 @@ object SeedData {
             description = "Sac à main tendance, simili-cuir de qualité, idéal pour toutes les occasions.",
             price = 17000.0,
             imageUrl = "res:product_sac",
-            category = "Mode"
+            category = "Mode",
+            country = Country.TOGO,
+            city = "Lomé"
         ),
         Product(
             shopId = fashionShopId,
@@ -59,7 +69,9 @@ object SeedData {
             description = "Veste croisée pour homme, coupe soignée, parfaite pour les grandes occasions.",
             price = 15000.0,
             imageUrl = "res:product_veste",
-            category = "Mode"
+            category = "Mode",
+            country = Country.TOGO,
+            city = "Lomé"
         ),
         Product(
             shopId = fashionShopId,
@@ -67,7 +79,9 @@ object SeedData {
             description = "Sandales à talon fin, brides croisées, coloris doré.",
             price = 9000.0,
             imageUrl = "res:product_chaussure",
-            category = "Mode"
+            category = "Mode",
+            country = Country.TOGO,
+            city = "Lomé"
         ),
         Product(
             shopId = electroShopId,
@@ -75,7 +89,9 @@ object SeedData {
             description = "Kit de tonte complet avec tondeuse, finisseur et rasoir, accessoires inclus.",
             price = 15000.0,
             imageUrl = "res:product_tondeuse",
-            category = "Électronique"
+            category = "Électronique",
+            country = Country.BENIN,
+            city = "Cotonou"
         ),
         Product(
             shopId = electroShopId,
@@ -83,7 +99,9 @@ object SeedData {
             description = "Blender robuste avec bol en verre, broyeur à glace, plusieurs vitesses.",
             price = 15000.0,
             imageUrl = "res:product_moulinex",
-            category = "Électronique"
+            category = "Électronique",
+            country = Country.BENIN,
+            city = "Cotonou"
         ),
         Product(
             shopId = electroShopId,
@@ -91,7 +109,9 @@ object SeedData {
             description = "Réfrigérateur compact 2 portes, idéal chambre ou petit espace.",
             price = 25000.0,
             imageUrl = "res:product_frigo",
-            category = "Électronique"
+            category = "Électronique",
+            country = Country.BENIN,
+            city = "Cotonou"
         )
     )
 }

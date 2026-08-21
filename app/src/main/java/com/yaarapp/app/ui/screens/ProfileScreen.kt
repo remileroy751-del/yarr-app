@@ -57,13 +57,13 @@ fun ProfileScreen(
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
-                user?.fullName ?: "",
+                user?.firstName ?: "",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 12.dp)
             )
             Text(
-                user?.phone ?: "",
+                user?.let { "${it.country.labelWithFlag} · ${it.city}" } ?: "",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
             )
@@ -75,6 +75,7 @@ fun ProfileScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Row1(icon = Icons.Filled.Storefront, label = "Sexe", value = user?.sex?.label ?: "")
                     Row1(icon = Icons.Filled.Storefront, label = "Numéro WhatsApp", value = user?.whatsappNumber ?: "")
                     if (shop != null) {
                         Row1(icon = Icons.Filled.Storefront, label = "Ma boutique", value = shop!!.name)

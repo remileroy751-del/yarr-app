@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -35,7 +36,8 @@ import com.yaarapp.app.ui.components.ProductCard
 fun MarketplaceScreen(
     viewModel: com.yaarapp.app.viewmodel.YaarViewModel,
     onProductClick: (Product) -> Unit,
-    onCartClick: () -> Unit = {}
+    onCartClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {}
 ) {
     val products by viewModel.filteredProducts.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -47,6 +49,9 @@ fun MarketplaceScreen(
             TopAppBar(
                 title = { Text("Yaar-App", fontWeight = FontWeight.Bold) },
                 actions = {
+                    IconButton(onClick = onSearchClick) {
+                        Icon(Icons.Filled.Search, contentDescription = "Rechercher", tint = Color.White)
+                    }
                     IconButton(onClick = onCartClick) {
                         if (cartCount > 0) {
                             BadgedBox(badge = { Badge { Text(cartCount.toString()) } }) {

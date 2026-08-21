@@ -30,7 +30,7 @@ import com.yaarapp.app.data.Plan
 private data class PlanInfo(val plan: Plan, val priceLabel: String, val description: String)
 
 private val plansCatalog = listOf(
-    PlanInfo(Plan.GRATUIT, "0 FCFA", "Jusqu'à 10 produits en ligne. Idéal pour démarrer."),
+    PlanInfo(Plan.GRATUIT, "0 FCFA", "Jusqu'à 5 produits actifs en ligne. Idéal pour démarrer."),
     PlanInfo(Plan.STANDARD, "À définir / mois", "Jusqu'à 30 produits en ligne, pour les boutiques en croissance."),
     PlanInfo(Plan.PRO, "À définir / mois", "Jusqu'à 100 produits en ligne, pour les grossistes et grandes boutiques.")
 )
