@@ -12,8 +12,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -24,14 +29,15 @@ import com.yaarapp.app.data.Product
 import com.yaarapp.app.util.ImageStorage
 
 /**
- * Carte produit pour la grille "Acheter" : photo au format 1:1, puis le prix
- * directement sous la photo (comme demandé), puis le nom du produit.
+ * Carte produit pour la grille "Acheter" : photo au format 1:1, puis en grand le prix
+ * et le nom du produit, et en miniature la ville et le nom de la boutique qui l'a publié.
  */
 @Composable
 fun ProductCard(
     product: Product,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    own: Boolean = false
 ) {
     val context = LocalContext.current
     Card(
@@ -44,6 +50,8 @@ fun ProductCard(
     ) {
         Column {
             Box {
+                val imageFailedState = androidx.compose.runtime.remember(product.imageUrl) { androidx.compose.runtime.mutableStateOf(false) }
+                val imageFailed = imageFailedState.value
                 AsyncImage(
                     model = ImageStorage.resolveImageModel(context, product.imageUrl),
                     contentDescription = product.name,
@@ -51,26 +59,61 @@ fun ProductCard(
                         .fillMaxWidth()
                         .aspectRatio(1f)
                         .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    onError = { imageFailedState.value = true }
                 )
+                if (imageFailed) {
+                    Box(
+                        modifier = Modifier.matchParentSize().background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) { Text("Photo indisponible", style = MaterialTheme.typography.labelMedium) }
+                }
+                if (own) {
+                    Box(Modifier.align(Alignment.TopEnd).padding(6.dp).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(6.dp)).padding(horizontal = 7.dp, vertical = 4.dp)) {
+                        Text("Publié par vous", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (product.isPromoted) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(6.dp)
+                            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Sponsorisé", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
             Column(modifier = Modifier.padding(12.dp)) {
+                if (product.listingType != "PRODUCT") {
+                    Text(
+                        text = if (product.listingType == "IMMO_RENT") "LOCATION" else "VENTE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
                 Text(
-                    text = "${product.price.toLong()} FCFA",
+                    text = if (product.listingType == "PRODUCT") "${product.price.toLong()} FCFA" else product.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text(
-                    text = "Disponible à ${product.city}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
+                if (product.listingType == "PRODUCT") Text(
                     text = product.name,
                     style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                if (product.ownerUid != null) {
+                    // Le propriétaire est identifié plus précisément dans l'écran Immo/marketplace.
+                }
+                Text(
+                    text = "${product.shopName} · ${product.city}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 2.dp)

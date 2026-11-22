@@ -3,8 +3,12 @@ package com.yaarapp.app.nav
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -14,21 +18,33 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.yaarapp.app.ui.components.ActivationKeyDialog
 import com.yaarapp.app.ui.components.YaarBottomBar
 import com.yaarapp.app.ui.screens.AddProductScreen
 import com.yaarapp.app.ui.screens.CartScreen
+import com.yaarapp.app.ui.screens.ChatScreen
+import com.yaarapp.app.ui.screens.ConfigureAdCampaignScreen
+import com.yaarapp.app.ui.screens.PayDunyaCheckoutScreen
+import com.yaarapp.app.ui.screens.ConversationsScreen
+import com.yaarapp.app.ui.screens.ConversationScreen
 import com.yaarapp.app.ui.screens.LoginScreen
 import com.yaarapp.app.ui.screens.MarketplaceScreen
+import com.yaarapp.app.ui.screens.ImmoScreen
+import com.yaarapp.app.ui.screens.MyAdsScreen
 import com.yaarapp.app.ui.screens.MyShopScreen
+import com.yaarapp.app.ui.screens.NotificationsScreen
 import com.yaarapp.app.ui.screens.OnboardingLocationScreen
-import com.yaarapp.app.ui.screens.PlansScreen
 import com.yaarapp.app.ui.screens.ProductDetailScreen
 import com.yaarapp.app.ui.screens.ProfileScreen
 import com.yaarapp.app.ui.screens.SearchScreen
+import com.yaarapp.app.ui.screens.SelectProductToPromoteScreen
+import com.yaarapp.app.ui.screens.ShopPublicScreen
 import com.yaarapp.app.ui.screens.SignUpScreen
 import com.yaarapp.app.ui.screens.SplashScreen
+import com.yaarapp.app.ui.screens.TermsAndConditionsScreen
 import com.yaarapp.app.viewmodel.YaarViewModel
 import com.yaarapp.app.viewmodel.YaarViewModelFactory
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
@@ -38,9 +54,13 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val cartItemCount by viewModel.cartItemCount.collectAsState()
+    val termsAccepted by viewModel.termsAccepted.collectAsStateWithLifecycle()
 
-    val mainTabs = listOf(Routes.PROFILE, Routes.MY_SHOP, Routes.MARKETPLACE)
+    val mainTabs = listOf(Routes.PROFILE, Routes.CONVERSATIONS, Routes.MY_SHOP, Routes.MARKETPLACE, Routes.IMMO)
     val showBottomBar = currentRoute in mainTabs
+
+    // Fenêtre « clé d'activation » : affichée par-dessus n'importe quel écran (Profil, limites atteintes).
+    ActivationKeyDialog(viewModel = viewModel)
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -50,16 +70,30 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
         ) {
             NavHost(navController = navController, startDestination = Routes.SPLASH) {
                 composable(Routes.SPLASH) {
-                    SplashScreen(onFinished = {
-                        val destination = if (viewModel.currentUserId.value != null) {
-                            Routes.MARKETPLACE
+                    SplashScreen(
+                        sessionReady = viewModel.sessionReady.collectAsStateWithLifecycle().value,
+                        onFinished = {
+                        val destination = if (!termsAccepted) {
+                            Routes.TERMS
                         } else {
-                            Routes.LOGIN
+                            if (viewModel.currentUserId.value != null) Routes.MARKETPLACE else Routes.LOGIN
                         }
                         navController.navigate(destination) {
                             popUpTo(Routes.SPLASH) { inclusive = true }
                         }
                     })
+                }
+
+                composable(Routes.TERMS) {
+                    TermsAndConditionsScreen(
+                        viewModel = viewModel,
+                        onAccepted = {
+                            val destination = if (viewModel.currentUserId.value != null) Routes.MARKETPLACE else Routes.LOGIN
+                            navController.navigate(destination) {
+                                popUpTo(Routes.TERMS) { inclusive = true }
+                            }
+                        }
+                    )
                 }
 
                 composable(Routes.LOGIN) {
@@ -103,6 +137,9 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                         onSearchClick = { navController.navigate(Routes.SEARCH) }
                     )
                 }
+                composable(Routes.IMMO) {
+                    ImmoScreen(viewModel = viewModel, onListingClick = { product -> navController.navigate(Routes.productDetail(product.id)) })
+                }
                 composable(Routes.SEARCH) {
                     SearchScreen(
                         viewModel = viewModel,
@@ -112,6 +149,20 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                         }
                     )
                 }
+                composable(Routes.CONVERSATIONS) {
+                    ConversationsScreen(
+                        viewModel = viewModel,
+                        onOpen = { id -> navController.navigate(Routes.conversation(id)) }
+                    )
+                }
+                composable(
+                    route = Routes.CONVERSATION,
+                    arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
+                ) { entry ->
+                    val id = entry.arguments?.getString("conversationId") ?: return@composable
+                    ConversationScreen(conversationId = id, viewModel = viewModel, onBack = { navController.popBackStack() })
+                }
+
                 composable(
                     route = Routes.PRODUCT_DETAIL,
                     arguments = listOf(navArgument("productId") { type = NavType.IntType })
@@ -120,7 +171,41 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                     ProductDetailScreen(
                         productId = productId,
                         viewModel = viewModel,
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onViewShop = { shopId -> navController.navigate(Routes.shopPublic(shopId)) },
+                        onChatSupplier = { product, shop ->
+                            viewModel.openChat(product, shop) { id, error ->
+                                if (id != null) navController.navigate(Routes.conversation(id))
+                            }
+                        }
+                    )
+                }
+                composable(
+                    route = Routes.CHAT,
+                    arguments = listOf(navArgument("productId") { type = NavType.IntType })
+                ) { entry ->
+                    val productId = entry.arguments?.getInt("productId") ?: 0
+                    val products by viewModel.allProducts.collectAsStateWithLifecycle()
+                    val p = products.firstOrNull { it.id == productId }
+                    val chatShopState = remember(productId) { mutableStateOf<com.yaarapp.app.data.Shop?>(null) }
+                    LaunchedEffect(p?.id) { chatShopState.value = p?.let { viewModel.getShop(it.shopId) } }
+                    val chatShop = chatShopState.value
+                    if (p != null && chatShop != null) {
+                        ChatScreen(product = p, shop = chatShop, viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+                }
+                composable(
+                    route = Routes.SHOP_PUBLIC,
+                    arguments = listOf(navArgument("shopId") { type = NavType.IntType })
+                ) { entry ->
+                    val shopId = entry.arguments?.getInt("shopId") ?: 0
+                    ShopPublicScreen(
+                        shopId = shopId,
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onProductClick = { product ->
+                            navController.navigate(Routes.productDetail(product.id))
+                        }
                     )
                 }
                 composable(Routes.CART) {
@@ -131,7 +216,9 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                     MyShopScreen(
                         viewModel = viewModel,
                         onAddProduct = { navController.navigate(Routes.ADD_PRODUCT) },
-                        onSeePlans = { navController.navigate(Routes.PLANS) }
+                        onUpgrade = { viewModel.showActivationPrompt(YaarViewModel.ActivationReason.CERTIFY) },
+                        onPromoteProducts = { navController.navigate(Routes.SELECT_PRODUCT_TO_PROMOTE) },
+                        onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) }
                     )
                 }
                 composable(Routes.ADD_PRODUCT) {
@@ -141,8 +228,39 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                         onSaved = { navController.popBackStack() }
                     )
                 }
-                composable(Routes.PLANS) {
-                    PlansScreen(onBack = { navController.popBackStack() })
+                composable(Routes.NOTIFICATIONS) {
+                    NotificationsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                }
+                composable(Routes.SELECT_PRODUCT_TO_PROMOTE) {
+                    SelectProductToPromoteScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onProductSelected = { navController.navigate(Routes.CONFIGURE_AD_CAMPAIGN) }
+                    )
+                }
+                composable(Routes.CONFIGURE_AD_CAMPAIGN) {
+                    ConfigureAdCampaignScreen(
+                        viewModel = viewModel,
+                        onBack = { navController.popBackStack() },
+                        onConfirmed = { navController.navigate(Routes.PAYDUNYA_CHECKOUT) }
+                    )
+                }
+                composable(Routes.PAYDUNYA_CHECKOUT) {
+                    PayDunyaCheckoutScreen(
+                        viewModel = viewModel,
+                        onCancel = {
+                            viewModel.cancelPendingPayment()
+                            navController.popBackStack(Routes.MY_SHOP, inclusive = false)
+                        },
+                        onSuccess = {
+                            viewModel.onPaymentSuccess {
+                                navController.popBackStack(Routes.MY_SHOP, inclusive = false)
+                            }
+                        }
+                    )
+                }
+                composable(Routes.MY_ADS) {
+                    MyAdsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                 }
 
                 composable(Routes.PROFILE) {
@@ -152,7 +270,9 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                             navController.navigate(Routes.LOGIN) {
                                 popUpTo(0) { inclusive = true }
                             }
-                        }
+                        },
+                        onCertifyShop = { viewModel.showActivationPrompt(YaarViewModel.ActivationReason.CERTIFY) },
+                        onMyAds = { navController.navigate(Routes.MY_ADS) }
                     )
                 }
             }
@@ -164,8 +284,23 @@ fun YaarNavHost(viewModelFactory: YaarViewModelFactory) {
                 onNavigate = { route ->
                     if (route != currentRoute) {
                         navController.navigate(route) {
-                            popUpTo(Routes.MARKETPLACE) { inclusive = false }
+                            // BUG CORRIGÉ ("Ma boutique" plantait avec "LayoutNode should be
+                            // attached to an owner") : popUpTo sans `saveState = true`, combiné
+                            // à `navigate` sans `restoreState = true`, force Navigation Compose à
+                            // détruire puis recréer les entrées de la pile à chaque changement
+                            // d'onglet. Quand cette recréation tombe en plein milieu de
+                            // l'animation de transition par défaut (AnimatedContent) de NavHost,
+                            // celle-ci essaie de mesurer un noeud déjà détaché → crash. C'est un
+                            // problème connu et documenté du pattern "bottom navigation" en
+                            // Compose : il faut systématiquement les 3 réglages ci-dessous
+                            // ensemble pour que chaque onglet conserve proprement son état
+                            // (position de scroll, etc.) au lieu d'être recréé à chaque clic.
+                            popUpTo(Routes.MARKETPLACE) {
+                                inclusive = false
+                                saveState = true
+                            }
                             launchSingleTop = true
+                            restoreState = true
                         }
                     }
                 }

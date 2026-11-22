@@ -12,6 +12,8 @@ data class Product(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val shopId: Int,
+    /** Nom de la boutique au moment de la publication — affiché en miniature sous le produit. */
+    val shopName: String,
     val name: String,
     val description: String,
     val price: Double,
@@ -27,6 +29,15 @@ data class Product(
     val country: Country,
     val city: String,
     /**
+     * Villes dans lesquelles le produit est visible. La ville principale [city] est
+     * toujours incluse automatiquement. Le vendeur peut ajouter jusqu'à 5 villes.
+     */
+    val availableCities: List<String> = emptyList(),
+    /** UID Supabase du propriétaire, stable entre téléphones. */
+    val ownerUid: String? = null,
+    /** Identifiant Supabase de la boutique à laquelle le produit appartient. */
+    val shopRemoteId: String? = null,
+    /**
      * true = produit visible par les acheteurs dans "Acheter".
      * false = désactivé (automatiquement après 14 jours, ou manuellement par le vendeur).
      * Un produit désactivé n'est jamais supprimé automatiquement : il reste visible
@@ -39,7 +50,25 @@ data class Product(
      * Date de (re)mise en vente : réinitialisée à chaque republication.
      * La désactivation automatique se déclenche 14 jours après cette date.
      */
-    val activatedAt: Long = System.currentTimeMillis()
+    val activatedAt: Long = System.currentTimeMillis(),
+    /**
+     * true tant qu'une campagne publicitaire active fait de la mise en avant pour ce
+     * produit (voir [AdCampaign]) — piloté entièrement par [YaarRepository], jamais
+     * modifié directement ailleurs.
+     */
+    val isPromoted: Boolean = false,
+    /** Contrôle les canaux de discussion exposés aux acheteurs pour ce produit. */
+    val internalDiscussionEnabled: Boolean = true,
+    val whatsappDiscussionEnabled: Boolean = true,
+    /** Type de publication: PRODUCT, IMMO_SALE ou IMMO_RENT. */
+    val listingType: String = "PRODUCT",
+    /** Deuxième photo optionnelle pour une annonce immobilière. */
+    val secondImageUrl: String? = null,
+    /**
+     * Identifiant du document Supabase correspondant une fois ce produit synchronisé
+     * en ligne (voir [Shop.remoteId] pour le principe complet).
+     */
+    val remoteId: String? = null
 ) {
     fun expiresAt(): Long = activatedAt + FREE_LISTING_DURATION_MS
     fun isExpired(now: Long = System.currentTimeMillis()): Boolean = isActive && now >= expiresAt()

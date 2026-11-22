@@ -1,6 +1,11 @@
 package com.yaarapp.app.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,21 +16,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,16 +57,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.yaarapp.app.R
 import com.yaarapp.app.data.FREE_LISTING_DURATION_DAYS
 import com.yaarapp.app.data.Product
+import com.yaarapp.app.data.ShopCategories
+import com.yaarapp.app.data.maxProducts
 import com.yaarapp.app.util.ImageStorage
 import com.yaarapp.app.viewmodel.YaarViewModel
 
@@ -63,172 +79,387 @@ import com.yaarapp.app.viewmodel.YaarViewModel
 fun MyShopScreen(
     viewModel: YaarViewModel,
     onAddProduct: () -> Unit,
-    onSeePlans: () -> Unit
+    onUpgrade: () -> Unit,
+    onPromoteProducts: () -> Unit,
+    onOpenNotifications: () -> Unit
 ) {
+    val context = LocalContext.current
     val shop by viewModel.myShop.collectAsStateWithLifecycle()
     val error by viewModel.shopCreationError.collectAsStateWithLifecycle()
+    val shopNameMessage by viewModel.shopNameMessage.collectAsStateWithLifecycle()
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var newShopName by remember { mutableStateOf("") }
+    var pickedLogoUri by remember { mutableStateOf<Uri?>(null) }
+    val pickLogo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { pickedLogoUri = it }
 
-    if (shop == null) {
-        CreateShopForm(error = error) { name, whatsapp ->
-            viewModel.createShop(name, whatsapp) {}
+    // Tant qu'aucune boutique n'existe, on affiche uniquement le formulaire de création.
+    // Aucun accès forcé à shop n'est effectué ici : cela évite les NPE lors de la
+    // restauration asynchrone de la session ou de la base locale.
+    val currentShop = shop
+    LaunchedEffect(currentShop?.name) { newShopName = currentShop?.name.orEmpty() }
+    if (currentShop == null) {
+        CreateShopForm(error = error) { name, logoUrl, activity, categories ->
+            viewModel.createShop(name, logoUrl, activity, categories) {}
         }
         return
     }
 
-    // Vérifie, à chaque ouverture de la boutique, si des produits ont dépassé
-    // les 14 jours d'exposition gratuite et doivent être désactivés.
-    LaunchedEffect(shop!!.id) {
-        viewModel.checkShopExpirations()
+    LaunchedEffect(currentShop.id) {
+        runCatching { viewModel.checkShopExpirations() }
     }
 
     val products by viewModel.myShopProducts.collectAsStateWithLifecycle()
     val expiredNotice by viewModel.expiredNotice.collectAsStateWithLifecycle()
-    val maxProducts = shop!!.plan.maxProducts
-    val activeCount = products.count { it.isActive }
+    val unreadCount by viewModel.unreadInterestCount.collectAsStateWithLifecycle()
+    val lastSyncEvent by viewModel.lastSyncEvent.collectAsStateWithLifecycle()
+    val publicationStatus by viewModel.publicationStatus.collectAsStateWithLifecycle()
+    val maxProducts = currentShop.maxProducts.coerceAtLeast(1)
+    val activeCount = products.count { it.isActive && it.listingType == "PRODUCT" }
+    val productRows = remember(products) { products.chunked(2) }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Ma boutique — ${shop!!.name}", fontWeight = FontWeight.Bold) })
+            TopAppBar(
+                title = { Text("Boutique — ${currentShop.name}", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = {
+                        newShopName = currentShop.name
+                        showRenameDialog = true
+                    }) {
+                        Icon(Icons.Filled.Edit, contentDescription = "Modifier le nom de la boutique")
+                    }
+                    IconButton(onClick = onOpenNotifications) {
+                        if (unreadCount > 0) {
+                            BadgedBox(badge = { Badge { Text(unreadCount.toString()) } }) {
+                                Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                            }
+                        } else {
+                            Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                        }
+                    }
+                }
+            )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = {
-                if (activeCount >= maxProducts) {
-                    onSeePlans()
-                } else {
-                    onAddProduct()
-                }
-            }) {
+            // Les limites (produits / annonces immobilières) sont contrôlées dans les formulaires
+            // de publication : la clé d'activation y est demandée au moment voulu.
+            FloatingActionButton(onClick = onAddProduct) {
                 Icon(Icons.Filled.Add, contentDescription = "Ajouter un produit")
             }
         }
     ) { padding ->
-        Column(
+        // Un seul conteneur vertical défilant pour tout l'écran.
+        // Cela élimine le risque de contraintes infinies lié à l'association
+        // Column/verticalScroll/LazyVerticalGrid et reste conforme aux recommandations
+        // Compose pour les contenus verticaux complexes.
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
-            if (expiredNotice != null) {
+            item(key = "shop_identity") {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Filled.Notifications,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                "$expiredNotice produit(s) désactivé(s) automatiquement",
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                "Ces produits sont en ligne depuis plus de $FREE_LISTING_DURATION_DAYS jours. Vérifiez votre boutique : remettez en vente ceux encore disponibles, ou supprimez ceux déjà vendus.",
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall
-                            )
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(currentShop.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            if (currentShop.isCertifiedNow()) {
+                                Spacer(Modifier.size(6.dp))
+                                androidx.compose.foundation.Image(
+                                    painter = painterResource(R.drawable.verified_badge),
+                                    contentDescription = "Boutique vérifiée",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
-                    }
-                    TextButton(
-                        onClick = { viewModel.dismissExpiredNotice() },
-                        modifier = Modifier.align(Alignment.End).padding(end = 8.dp, bottom = 4.dp)
-                    ) {
-                        Text("Compris")
+                        Text(com.yaarapp.app.ui.components.rememberShopSeniorityLabel(currentShop), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 3.dp))
+                        Text(
+                            if (currentShop.canChangeName()) "Le nom peut être modifié maintenant." else "Le nom est modifiable au maximum une fois tous les 30 jours.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
                     }
                 }
             }
 
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "$activeCount / $maxProducts produits actifs (forfait ${shop!!.plan.label})",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                LinearProgressIndicator(
-                    progress = { (activeCount.toFloat() / maxProducts).coerceIn(0f, 1f) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp)
-                )
-                if (activeCount >= maxProducts) {
-                    TextButton(onClick = onSeePlans, modifier = Modifier.padding(top = 4.dp)) {
-                        Text("Limite atteinte — voir les forfaits disponibles")
+            if (shopNameMessage != null) {
+                item(key = "shop_name_message") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (shopNameMessage.orEmpty().startsWith("Nom de la boutique modifié")) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(shopNameMessage.orEmpty(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            TextButton(onClick = { viewModel.clearShopNameMessage() }, modifier = Modifier.align(Alignment.End)) { Text("Fermer") }
+                        }
+                    }
+                }
+            }
+
+            if (lastSyncEvent != null) {
+                item(key = "sync_event") {
+                    val syncMessage = lastSyncEvent.orEmpty()
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (syncMessage == "Connexion réussie")
+                                MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                syncMessage,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            TextButton(
+                                onClick = { viewModel.dismissLastSyncEvent() },
+                                modifier = Modifier.align(Alignment.End)
+                            ) {
+                                Text("J'ai compris")
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (publicationStatus != null) {
+                item(key = "publication_status") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Text(
+                            publicationStatus.orEmpty(),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+                }
+            }
+
+            if (expiredNotice != null) {
+                item(key = "expired_notice") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Filled.Notifications,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "${expiredNotice ?: 0} produit(s) désactivé(s) automatiquement",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    "Ces produits sont en ligne depuis plus de $FREE_LISTING_DURATION_DAYS jours. Vérifiez votre boutique : remettez en vente ceux encore disponibles, ou supprimez ceux déjà vendus.",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = { viewModel.dismissExpiredNotice() },
+                            modifier = Modifier
+                                .align(Alignment.End)
+                                .padding(end = 8.dp, bottom = 4.dp)
+                        ) {
+                            Text("J'ai compris")
+                        }
+                    }
+                }
+            }
+
+            item(key = "shop_summary") {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        "$activeCount / $maxProducts produits actifs" +
+                            if (currentShop.isCertifiedNow()) " (abonnement actif)" else " (mode gratuit)",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    LinearProgressIndicator(
+                        progress = { (activeCount.toFloat() / maxProducts).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onUpgrade,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(if (currentShop.isCertifiedNow()) "Prolonger l'abonnement" else "Publier plus de produits", style = MaterialTheme.typography.labelMedium)
+                        }
+                        OutlinedButton(
+                            onClick = onPromoteProducts,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Filled.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Text(" Promouvoir mes produits", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
             }
 
             if (products.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Storefront,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp),
-                        tint = MaterialTheme.colorScheme.secondary
-                    )
-                    Text(
-                        "Aucun produit publié pour le moment. Appuyez sur + pour ajouter votre premier article.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
+                item(key = "empty_products") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Storefront,
+                            contentDescription = null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            "Aucun produit publié pour le moment. Appuyez sur + pour ajouter votre premier article.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
                 }
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(products, key = { it.id }) { product ->
-                        MyProductCard(
-                            product = product,
-                            onDelete = { viewModel.deleteProduct(product) },
-                            onDeactivate = { viewModel.deactivateProduct(product) },
-                            onRepublish = { viewModel.republishProduct(product) }
-                        )
+                items(
+                    items = productRows,
+                    key = { row -> "product_row_${row.firstOrNull()?.id ?: 0}" }
+                ) { row ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        row.forEach { product ->
+                            Box(modifier = Modifier.weight(1f)) {
+                                MyProductCard(
+                                    product = product,
+                                    onDelete = { viewModel.deleteProduct(product) },
+                                    onDeactivate = { viewModel.deactivateProduct(product) },
+                                    onRepublish = { viewModel.republishProduct(product) }
+                                )
+                            }
+                        }
+                        if (row.size == 1) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
                 }
             }
         }
     }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Modifier le nom de la boutique") },
+            text = {
+                Column {
+                    Text(
+                        if (currentShop.canChangeName()) "Vous pouvez modifier le nom maintenant. Après cette modification, un délai de 30 jours sera appliqué avant toute nouvelle modification."
+                        else "Impossible de modifier le nom de votre boutique avant ${formatShopDate(currentShop.nextNameChangeAt())}.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text("Logo de la boutique", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
+                    Text(if (currentShop.canChangeLogo()) "Le logo peut être modifié maintenant." else "Logo modifiable après ${formatShopDate(currentShop.nextLogoChangeAt())}.", style = MaterialTheme.typography.bodySmall)
+                    OutlinedButton(onClick = { pickLogo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = currentShop.canChangeLogo(), modifier = Modifier.padding(top = 6.dp)) { Text(if (pickedLogoUri == null) "Choisir un nouveau logo" else "Logo sélectionné") }
+
+                    OutlinedTextField(
+                        value = newShopName,
+                        onValueChange = { newShopName = it },
+                        label = { Text("Nouveau nom") },
+                        singleLine = true,
+                        enabled = currentShop.canChangeName(),
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val trimmedName = newShopName.trim()
+                        if (currentShop.canChangeName() && trimmedName.isNotBlank() && trimmedName != currentShop.name.trim()) {
+                            viewModel.renameShop(trimmedName)
+                        }
+                        pickedLogoUri?.let { uri ->
+                            ImageStorage.saveToInternalStorage(context, uri)?.let { path -> viewModel.updateShopLogo(path) }
+                        }
+                        showRenameDialog = false
+                    },
+                    enabled = (currentShop.canChangeName() && newShopName.trim().isNotBlank() && newShopName.trim() != currentShop.name.trim()) || (currentShop.canChangeLogo() && pickedLogoUri != null)
+                ) { Text("Enregistrer") }
+            },
+            dismissButton = { TextButton(onClick = { showRenameDialog = false }) { Text("Annuler") } }
+        )
+    }
 }
+
+private fun formatShopDate(timestamp: Long): String =
+    java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.FRENCH).format(java.util.Date(timestamp))
 
 @Composable
 private fun CreateShopForm(
     error: String?,
-    onCreate: (name: String, whatsapp: String) -> Unit
+    onCreate: (name: String, logoUrl: String?, activity: String, categories: List<String>) -> Unit
 ) {
+    val context = LocalContext.current
     var name by remember { mutableStateOf("") }
-    var whatsapp by remember { mutableStateOf("") }
+    var activity by remember { mutableStateOf("") }
+    var pickedLogoUri by remember { mutableStateOf<Uri?>(null) }
+    val pickLogo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { pickedLogoUri = it }
+    var selectedCategories by remember { mutableStateOf(setOf<String>()) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            Icons.Filled.Storefront,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
         Text(
             "Créer ma boutique",
             style = MaterialTheme.typography.headlineMedium,
@@ -236,10 +467,40 @@ private fun CreateShopForm(
             modifier = Modifier.padding(top = 12.dp, bottom = 20.dp)
         )
         Text(
-            "Chaque compte peut ouvrir une boutique et publier jusqu'à 5 produits gratuitement (au-delà, désactivez ou remettez en vente vos articles pour continuer à publier).",
+            "Chaque compte peut ouvrir une boutique et publier jusqu'à 5 produits gratuitement (au-delà, désactivez ou remettez en vente vos articles pour continuer à publier). Le numéro WhatsApp de votre compte servira automatiquement de numéro de contact pour cette boutique.",
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+
+        // Logo (facultatif)
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                .clickable {
+                    pickLogo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            if (pickedLogoUri != null) {
+                AsyncImage(
+                    model = pickedLogoUri,
+                    contentDescription = "Logo de la boutique",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(Icons.Filled.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+        Text(
+            "Ajouter un logo (facultatif)",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
+        )
+
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
@@ -247,14 +508,48 @@ private fun CreateShopForm(
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
-            value = whatsapp,
-            onValueChange = { whatsapp = it },
-            label = { Text("Numéro WhatsApp de la boutique") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            value = activity,
+            onValueChange = { activity = it },
+            label = { Text("Description de la boutique") },
+            minLines = 2,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp)
         )
+
+        Text(
+            "Catégories de la boutique (${ShopCategories.MAX_SELECTABLE} au choix)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp, bottom = 8.dp)
+        )
+        ShopCategories.defaultCategories.chunked(2).forEach { rowCategories ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowCategories.forEach { category ->
+                    val selected = category in selectedCategories
+                    FilterChip(
+                        selected = selected,
+                        onClick = {
+                            selectedCategories = when {
+                                selected -> selectedCategories - category
+                                selectedCategories.size < ShopCategories.MAX_SELECTABLE -> selectedCategories + category
+                                else -> selectedCategories
+                            }
+                        },
+                        label = { Text(category) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
         if (error != null) {
             Text(
                 error,
@@ -264,13 +559,16 @@ private fun CreateShopForm(
             )
         }
         Button(
-            onClick = { onCreate(name.trim(), whatsapp.trim()) },
+            onClick = {
+                val logoUrl = pickedLogoUri?.let { ImageStorage.saveToInternalStorage(context, it) }
+                onCreate(name.trim(), logoUrl, activity.trim(), selectedCategories.toList())
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 20.dp),
             shape = RoundedCornerShape(14.dp)
         ) {
-            Text("Créer ma boutique")
+            Text("Créer la boutique")
         }
     }
 }
@@ -307,6 +605,17 @@ private fun MyProductCard(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text("Désactivé", color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                if (product.isPromoted) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .background(MaterialTheme.colorScheme.secondary, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("Sponsorisé", color = Color.White, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }

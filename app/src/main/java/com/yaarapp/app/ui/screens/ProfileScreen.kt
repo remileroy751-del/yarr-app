@@ -2,41 +2,89 @@ package com.yaarapp.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.yaarapp.app.data.CertificationStatus
+import com.yaarapp.app.data.maxImmoListings
+import com.yaarapp.app.data.maxProducts
 import com.yaarapp.app.viewmodel.YaarViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     viewModel: YaarViewModel,
-    onLoggedOut: () -> Unit
+    onLoggedOut: () -> Unit,
+    onCertifyShop: () -> Unit = {},
+    onMyAds: () -> Unit = {}
 ) {
     val user by viewModel.currentUser.collectAsStateWithLifecycle()
     val shop by viewModel.myShop.collectAsStateWithLifecycle()
+    val activeAdCampaigns by viewModel.activeAdCampaigns.collectAsStateWithLifecycle()
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showFinalDialog by remember { mutableStateOf(false) }
+    var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
+    var showSupportDialog by remember { mutableStateOf(false) }
+    var supportText by remember { mutableStateOf("") }
+    var supportError by remember { mutableStateOf<String?>(null) }
+    val supportMessages by viewModel.supportMessages.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -47,7 +95,8 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(20.dp),
+                .padding(horizontal = 20.dp)
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
@@ -69,20 +118,80 @@ fun ProfileScreen(
             )
 
             Card(
+                modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Column(Modifier.padding(14.dp)) {
+                    Text("Suivez-nous sur nos réseaux", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text("Restez informé des nouveautés de Yaar-App.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f), modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
+                    SocialFollowButton(
+                        label = "Suivez-nous sur Facebook",
+                        badge = "f",
+                        badgeColor = Color(0xFF1877F2),
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.facebook.com/share/1BdYkU3ecJ/"))) }
+                    )
+                    SocialFollowButton(
+                        label = "Suivez-nous sur WhatsApp",
+                        badge = "◔",
+                        badgeColor = Color(0xFF25D366),
+                        onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://whatsapp.com/channel/0029VbDjTyb5K3zZvfbpMz0q"))) }
+                    )
+                }
+            }
+
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 24.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row1(icon = Icons.Filled.Storefront, label = "Sexe", value = user?.sex?.label ?: "")
+                    Row1(icon = Icons.Filled.Storefront, label = "Adresse e-mail", value = user?.email ?: "")
                     Row1(icon = Icons.Filled.Storefront, label = "Numéro WhatsApp", value = user?.whatsappNumber ?: "")
-                    if (shop != null) {
-                        Row1(icon = Icons.Filled.Storefront, label = "Ma boutique", value = shop!!.name)
-                        Row1(icon = Icons.Filled.Storefront, label = "Forfait actuel", value = shop!!.plan.label)
+                    OutlinedButton(
+                onClick = {
+                    supportError = null
+                    supportText = ""
+                    showSupportDialog = true
+                    viewModel.refreshSupportMessages()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Filled.SupportAgent, contentDescription = null)
+                Text("Écrire au support de Yaar-App", modifier = Modifier.padding(start = 8.dp), fontWeight = FontWeight.SemiBold)
+            }
+
+            if (shop != null) {
+                        Row1(icon = Icons.Filled.Storefront, label = "Boutique", value = shop!!.name)
+                        Text(
+                            com.yaarapp.app.ui.components.rememberShopSeniorityLabel(shop!!),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+                        )
+                        Row1(icon = Icons.Filled.Storefront, label = "Produits actifs autorisés", value = "${shop!!.maxProducts}")
+                        Row1(icon = Icons.Filled.Storefront, label = "Annonces immobilières autorisées", value = "${shop!!.maxImmoListings}")
+                        Row1(
+                            icon = Icons.Filled.VerifiedUser,
+                            label = "Certification",
+                            value = shop!!.effectiveCertificationStatus().label
+                        )
+                        // Boutique certifiée : date d'expiration + compte à rebours en jours.
+                        if (shop!!.isCertifiedNow() && shop!!.certificationExpiresAt != null) {
+                            com.yaarapp.app.ui.components.CertificationExpiryCard(
+                                shop = shop!!,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
                     } else {
                         Text(
-                            "Vous n'avez pas encore de boutique. Rendez-vous dans l'onglet \"Ma boutique\" pour en créer une.",
+                            "Vous n'avez pas encore de boutique. Rendez-vous dans l'onglet \"Boutique\" pour en créer une.",
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(top = 4.dp)
                         )
@@ -90,28 +199,242 @@ fun ProfileScreen(
                 }
             }
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            ) {
+                Row1(
+                    icon = Icons.Filled.Notifications,
+                    label = "Recevoir des notifications",
+                    trailing = {
+                        Switch(
+                            checked = user?.notificationsEnabled ?: true,
+                            onCheckedChange = { viewModel.setNotificationsEnabled(it) }
+                        )
+                    }
+                )
+            }
+
+            if (shop != null) {
+                // Le bouton "Ma Publicité" ne s'affiche que tant qu'au moins une
+                // campagne publicitaire est active ; il disparaît automatiquement à la fin.
+                if (activeAdCampaigns.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = onMyAds,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp)
+                    ) {
+                        Icon(Icons.Filled.Bolt, contentDescription = null)
+                        Text(
+                            "Ma Publicité (${activeAdCampaigns.size} en cours)",
+                            modifier = Modifier.padding(start = 6.dp)
+                        )
+                    }
+                }
+
+                Button(
+                        onClick = onCertifyShop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(Icons.Filled.VerifiedUser, contentDescription = null)
+                        Text(
+                            if (shop!!.isCertifiedNow()) "Prolonger mon abonnement (+30 jours)" else "Certifier mon compte",
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+            }
+
+            // Actions de compte : l'ordre volontairement affiché est
+            // Certification → Déconnexion → Suppression du compte.
+            // Le profil est défilable afin que ces trois actions restent accessibles
+            // même sur les petits écrans et avec la barre de navigation inférieure.
             OutlinedButton(
                 onClick = { viewModel.logout { onLoggedOut() } },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp)
+                    .padding(top = 12.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.secondary),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.secondary
+                )
             ) {
                 Icon(Icons.Filled.Logout, contentDescription = null)
-                Text(" Se déconnecter", modifier = Modifier.padding(start = 6.dp))
+                Text(
+                    "Se déconnecter",
+                    modifier = Modifier.padding(start = 8.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
             }
+
+            OutlinedButton(
+                onClick = { password = ""; deleteError = null; showPasswordDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(Icons.Filled.DeleteForever, contentDescription = null)
+                Text(
+                    "Supprimer mon compte",
+                    modifier = Modifier.padding(start = 8.dp),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(20.dp))
+        }
+
+        if (showSupportDialog) {
+            AlertDialog(
+                onDismissRequest = { showSupportDialog = false },
+                title = { Text("Support Yaar-App") },
+                text = {
+                    Column {
+                        Text("Votre message", fontWeight = FontWeight.Bold)
+                        if (supportMessages.isNotEmpty()) {
+                            supportMessages.take(5).forEach { item ->
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                                ) {
+                                    Column(Modifier.padding(10.dp)) {
+                                        Text(item.message, style = MaterialTheme.typography.bodyMedium)
+                                        if (!item.adminReply.isNullOrBlank()) {
+                                            Text("Réponse de Yaar-App", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                                            Text(item.adminReply.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                                        } else {
+                                            Text("En attente de réponse", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 5.dp))
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        OutlinedTextField(
+                            value = supportText,
+                            onValueChange = { if (it.length <= 80) { supportText = it; supportError = null } },
+                            label = { Text("Message (80 caractères maximum)") },
+                            supportingText = { Text("${supportText.length}/80") },
+                            minLines = 3,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        supportError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        enabled = supportText.trim().isNotEmpty(),
+                        onClick = {
+                            viewModel.sendSupportMessage(supportText) { error ->
+                                if (error == null) { supportText = ""; viewModel.refreshSupportMessages() }
+                                else supportError = error
+                            }
+                        }
+                    ) { Text("Envoyer") }
+                },
+                dismissButton = { TextButton(onClick = { showSupportDialog = false }) { Text("Fermer") } }
+            )
+        }
+
+        if (showPasswordDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!deleting) showPasswordDialog = false },
+                title = { Text("Supprimer mon compte") },
+                text = {
+                    Column {
+                        Text("Saisissez le mot de passe de votre compte pour continuer.")
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { if (it.length <= 6 && it.all(Char::isLetterOrDigit)) password = it },
+                            label = { Text("Mot de passe") },
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            trailingIcon = { IconButton(onClick = { passwordVisible = !passwordVisible }) { Icon(if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, null) } },
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        )
+                        deleteError?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
+                    }
+                },
+                confirmButton = {
+                    Button(enabled = password.length == 6 && !deleting, onClick = { showPasswordDialog = false; showFinalDialog = true }) { Text("Continuer") }
+                },
+                dismissButton = { TextButton(enabled = !deleting, onClick = { showPasswordDialog = false }) { Text("Annuler") } }
+            )
+        }
+
+        if (showFinalDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!deleting) showFinalDialog = false },
+                title = { Text("Confirmation définitive") },
+                text = { Text("Votre compte sera supprimé avec toutes vos données.") },
+                confirmButton = {
+                    Button(enabled = !deleting, onClick = {
+                        deleting = true
+                        viewModel.deleteAccount(password,
+                            onSuccess = { deleting = false; showFinalDialog = false; password = ""; onLoggedOut() },
+                            onError = { deleting = false; showFinalDialog = false; deleteError = it; showPasswordDialog = true }
+                        )
+                    }) { Text(if (deleting) "Patientez…" else "Confirmer") }
+                },
+                dismissButton = { TextButton(enabled = !deleting, onClick = { showFinalDialog = false }) { Text("Annuler") } }
+            )
         }
     }
 }
 
 @Composable
-private fun Row1(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+private fun SocialFollowButton(
+    label: String,
+    badge: String,
+    badgeColor: Color,
+    onClick: () -> Unit
+) {
+    OutlinedButton(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+        Surface(shape = androidx.compose.foundation.shape.CircleShape, color = badgeColor, modifier = Modifier.size(30.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(badge, color = Color.White, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Text(label, modifier = Modifier.padding(start = 10.dp), fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun Row1(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String = "",
+    trailing: (@Composable () -> Unit)? = null
+) {
     androidx.compose.foundation.layout.Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        if (trailing != null) {
+            trailing()
+        } else {
+            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        }
     }
 }

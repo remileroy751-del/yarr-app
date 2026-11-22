@@ -4,28 +4,23 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Compte utilisateur.
+ * Profil local d'un compte Yaar-App.
  *
- * NOTE IMPORTANTE : pour cette version de démonstration, les comptes sont stockés
- * uniquement en local (base Room) avec un mot de passe simplement haché. Cela permet
- * de tester tout le parcours (inscription, connexion, boutique, achats) sans backend.
- * Pour une mise en production réelle où plusieurs utilisateurs doivent voir les mêmes
- * boutiques/produits depuis des téléphones différents, il faudra remplacer cette couche
- * par un vrai service en ligne — voir /BACKEND_FIREBASE.md pour la marche à suivre.
- *
- * whatsappNumber est l'identifiant de connexion (unique) : il est stocké au format
- * "00" + indicatif pays + numéro local (ex : "0022890000000" pour un numéro togolais),
- * afin de faciliter l'envoi automatique de messages WhatsApp vers ce numéro.
+ * Le mot de passe n'est JAMAIS stocké ici ni dans Supabase : il est géré
+ * par Supabase Authentication (Email/Password). L'adresse e-mail saisie par
+ * l'utilisateur est l'identifiant de connexion Supabase.
  */
 @Entity(tableName = "users")
 data class User(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val firstName: String,
-    val sex: Sex,
+    val email: String,
     val country: Country,
     val city: String,
     val whatsappNumber: String,
-    val passwordHash: String,
-    val createdAt: Long = System.currentTimeMillis()
+    val notificationsEnabled: Boolean = true,
+    val createdAt: Long = System.currentTimeMillis(),
+    /** UID Supabase Authentication. Null uniquement pour les anciens comptes avant sécurisation. */
+    val firebaseUid: String? = null
 )

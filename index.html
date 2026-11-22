@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Yaar-App · Super Admin</title>
+  <meta name="description" content="Interface d'administration sécurisée de Yaar-App">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{--orange:#ff7200;--orange2:#ff8a22;--green:#159447;--ink:#182018;--muted:#6d756d;--bg:#f7f5f0;--card:#fff;--line:#e8e3da;--danger:#c62828;--shadow:0 12px 30px rgba(30,30,20,.08)}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    button,input,select{font:inherit} button{cursor:pointer}.hidden{display:none!important}
+    .login{min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 20% 10%,#fff 0 22%,transparent 45%),linear-gradient(145deg,#fff8ee,#f6f7f2)}
+    .login-card{width:min(430px,100%);background:#fff;border:1px solid var(--line);border-radius:24px;padding:30px;box-shadow:var(--shadow)}
+    .brand{display:flex;align-items:center;gap:12px}.brand img{width:58px;height:58px;object-fit:contain;border-radius:16px}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;color:var(--muted)}
+    .field{margin-top:16px}.field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}.field input{width:100%;padding:12px 13px;border:1px solid #d9d5cc;border-radius:12px;outline:none}.field input:focus{border-color:var(--orange);box-shadow:0 0 0 3px #ff72001a}
+    .primary{border:0;background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;padding:12px 16px;border-radius:12px;font-weight:800}.secondary{border:1px solid #d9d5cc;background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;font-weight:700}.danger{border:0;background:#fff0f0;color:var(--danger);padding:9px 12px;border-radius:9px;font-weight:800}.success{color:var(--green)}
+    .login .primary{width:100%;margin-top:20px}.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:14px}.error{color:var(--danger);font-size:13px;margin-top:12px}
+    .app{min-height:100vh}.topbar{height:74px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:10}.topbar .brand img{width:46px;height:46px}.topbar .brand h1{font-size:19px}.topbar .right{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+    .wrap{max-width:1450px;margin:auto;padding:26px}.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:22px}.hero h2{margin:0;font-size:28px}.hero p{margin:7px 0 0;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.stat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 5px 18px rgba(30,30,20,.04)}.stat .k{font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em}.stat .v{font-size:30px;font-weight:900;margin-top:7px}.stat.orange{border-top:4px solid var(--orange)}.stat.green{border-top:4px solid var(--green)}
+    .section{margin-top:22px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 5px 18px rgba(30,30,20,.04);overflow:hidden}.section-head{padding:17px 19px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}.section-head h3{margin:0;font-size:17px}.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input,.toolbar select{padding:9px 11px;border:1px solid #d9d5cc;border-radius:10px;background:#fff;min-width:170px}
+    .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:850px}th,td{padding:12px 14px;border-bottom:1px solid #eee9e0;text-align:left;font-size:13px;vertical-align:middle}th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#fcfbf8}tr:last-child td{border-bottom:0}.badge{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:900}.badge.green{background:#eaf8ef;color:#11753a}.badge.orange{background:#fff1e5;color:#a74a00}.badge.gray{background:#f0f0ed;color:#62665f}.badge.red{background:#ffecec;color:#a31e1e}
+    .countries{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:18px}.country{border:1px solid var(--line);border-radius:13px;padding:13px;display:flex;justify-content:space-between}.country b{color:var(--orange)}
+    .empty{padding:28px;text-align:center;color:var(--muted)}.tabs{display:flex;gap:8px;margin:18px 0 4px}.tab{border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 14px;border-radius:12px;font-weight:800}.tab.active{background:var(--orange);color:#fff;border-color:var(--orange)}.tab-count{display:inline-flex;min-width:22px;height:22px;padding:0 6px;align-items:center;justify-content:center;border-radius:999px;background:#fff3e7;color:var(--orange);font-size:12px;margin-left:5px}.footer{padding:30px 0;color:var(--muted);font-size:12px;text-align:center}
+    .modal{position:fixed;inset:0;background:rgba(20,20,15,.6);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}.modal-card{background:#fff;border-radius:18px;max-width:980px;width:100%;max-height:92vh;overflow:auto;padding:20px}.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.modal-head h3{margin:0}.ids{display:grid;grid-template-columns:1fr 1fr;gap:14px}.ids figure{margin:0}.ids img{width:100%;border-radius:12px;border:1px solid var(--line);background:#f3f1ea;min-height:120px;object-fit:contain}.ids figcaption{font-weight:800;font-size:12px;margin-bottom:6px;color:var(--muted);text-transform:uppercase}.actions{display:flex;gap:8px;flex-wrap:wrap}.quota{height:8px;background:#eee9e0;border-radius:99px;overflow:hidden;margin-top:8px}.quota i{display:block;height:100%;background:var(--green)}.days{font-weight:900}.days.low{color:var(--danger)}
+    @media(max-width:900px){.ids{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.countries{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.topbar{padding:0 14px}.wrap{padding:16px}.hero{align-items:flex-start;flex-direction:column}.grid{grid-template-columns:1fr 1fr}.countries{grid-template-columns:1fr}.topbar .right span{display:none}}
+  </style>
+</head>
+<body>
+  <div id="loginView" class="login">
+    <div class="login-card">
+      <div class="brand"><img src="admin/yaar-logo.jpeg" alt="Yaar-App"><div><h1>Yaar-App</h1><p>Super Admin sécurisé</p></div></div>
+      <div class="field"><label>Email administrateur</label><input id="email" type="email" autocomplete="username" placeholder="admin@exemple.com"></div>
+      <div class="field"><label>Mot de passe</label><input id="password" type="password" autocomplete="current-password" placeholder="Votre mot de passe"></div>
+      <button id="loginBtn" class="primary">Se connecter</button>
+      <div id="loginError" class="error"></div>
+      <div class="note">Cette interface n'utilise jamais la clé service_role. L'accès est protégé par Supabase Authentication et la table des administrateurs.</div>
+    </div>
+  </div>
+
+  <div id="appView" class="app hidden">
+    <header class="topbar"><div class="brand"><img src="admin/yaar-logo.jpeg" alt="Yaar-App"><div><h1>Yaar-App · Administration</h1></div></div><div class="right"><span id="adminEmail"></span><button id="logoutBtn" class="secondary">Déconnexion</button></div></header>
+    <main class="wrap">
+      <div class="hero"><div><h2>Tableau de bord</h2><p>Modération, abonnements par clé d'activation et statistiques de la plateforme.</p></div><button id="refreshBtn" class="primary">Actualiser</button></div>
+      <div class="tabs"><button id="dashboardTab" class="tab active">Tableau de bord</button><button id="keysTab" class="tab">Clés d'activation <span id="certCount" class="tab-count">0</span></button><button id="supportTab" class="tab">Messages reçus <span id="supportCount" class="tab-count">0</span></button></div>
+      <div id="dashboardView">
+      <div class="grid">
+        <div class="stat orange"><div class="k">Utilisateurs</div><div id="usersTotal" class="v">—</div></div>
+        <div class="stat green"><div class="k">Boutiques</div><div id="shopsTotal" class="v">—</div></div>
+        <div class="stat orange"><div class="k">Produits actifs</div><div id="productsTotal" class="v">—</div></div>
+        <div class="stat green"><div class="k">Annonces immo actives</div><div id="immoTotal" class="v">—</div></div>
+      </div>
+
+      <section class="section"><div class="section-head"><h3>Utilisateurs par pays</h3><span class="badge gray">Données Supabase</span></div><div id="countries" class="countries"></div></section>
+
+      <section class="section"><div class="section-head"><h3>Utilisateurs</h3><div class="toolbar"><input id="userSearch" placeholder="Rechercher nom / email / pays…"></div></div><div class="table-wrap"><table><thead><tr><th>Utilisateur</th><th>Email</th><th>Pays / ville</th><th>Inscrit le</th><th>Action</th></tr></thead><tbody id="usersBody"></tbody></table></div></section>
+
+      <section class="section"><div class="section-head"><h3>Boutiques · abonnement et badge certifié</h3><div class="toolbar"><input id="shopSearch" placeholder="Rechercher une boutique…"><select id="shopFilter"><option value="ALL">Toutes</option><option value="CERTIFIED">Abonnement actif</option><option value="EXPIRED">Expirés</option><option value="NONE">Mode gratuit</option></select></div></div><div class="table-wrap"><table><thead><tr><th>Boutique</th><th>Propriétaire</th><th>Pays / ville</th><th>Statut</th><th>Action</th></tr></thead><tbody id="shopsBody"></tbody></table></div></section>
+
+      <section class="section"><div class="section-head"><h3>Modération des produits et annonces immobilières</h3><div class="toolbar"><input id="productSearch" placeholder="Rechercher titre / boutique…"><select id="productFilter"><option value="ALL">Tous</option><option value="PRODUCT">Produits</option><option value="IMMO">Immobilier</option><option value="ACTIVE">Actifs</option><option value="INACTIVE">Désactivés</option></select></div></div><div class="table-wrap"><table><thead><tr><th>Publication</th><th>Boutique</th><th>Pays / ville</th><th>Type</th><th>Statut</th><th>Publié le</th><th>Action</th></tr></thead><tbody id="productsBody"></tbody></table></div></section>
+      </div>
+      <div id="keysView" class="hidden">
+        <div class="grid" style="margin-top:18px">
+          <div class="stat green"><div class="k">Clés disponibles</div><div id="keysAvailable" class="v">—</div></div>
+          <div class="stat orange"><div class="k">Clés utilisées</div><div id="keysUsed" class="v">—</div></div>
+          <div class="stat orange"><div class="k">Clés révoquées</div><div id="keysRevoked" class="v">—</div></div>
+          <div class="stat green"><div class="k">Abonnements actifs</div><div id="keysLive" class="v">—</div></div>
+        </div>
+        <section class="section">
+          <div class="section-head"><h3>Importer des clés d'activation (fichier .txt)</h3><span class="badge gray">1 clé par ligne · format ABCD 1234</span></div>
+          <div style="padding:18px">
+            <p class="note" style="margin-top:0">Chaque clé vaut <b>30 jours</b> (cumulables côté utilisateur). Chargez ici les clés que vous mettez en vente sur Chariow : une clé achetée puis saisie dans l'application active l'abonnement. Les doublons sont ignorés automatiquement.</p>
+            <div class="toolbar" style="margin-top:12px">
+              <input id="keyFile" type="file" accept=".txt,text/plain">
+              <input id="keyBatch" placeholder="Nom du lot (facultatif, ex. Novembre 2026)" style="min-width:260px">
+              <button id="keyImportBtn" class="primary" disabled>Envoyer vers Yaar-App</button>
+            </div>
+            <div id="keyPreview" class="note"></div>
+            <div id="keyResult" class="note"></div>
+            <p class="note">Boutique Chariow : <a href="https://wldadmwl.mychariow.shop/prd_m7lrqhgu" target="_blank" rel="noopener">https://wldadmwl.mychariow.shop/prd_m7lrqhgu</a></p>
+          </div>
+        </section>
+        <section class="section">
+          <div class="section-head"><h3>Clés enregistrées</h3><div class="toolbar"><input id="keySearch" placeholder="Rechercher une clé…"><select id="keyFilter"><option value="ALL">Toutes</option><option value="AVAILABLE">Disponibles</option><option value="USED">Utilisées</option><option value="REVOKED">Révoquées</option></select><button id="keysRefreshBtn" class="secondary">Actualiser</button></div></div>
+          <div class="table-wrap"><table><thead><tr><th>Clé</th><th>Statut</th><th>Lot</th><th>Importée le</th><th>Utilisée le</th><th>Boutique</th><th>Action</th></tr></thead><tbody id="keysBody"></tbody></table></div>
+          <div id="keysMore" class="note" style="padding:0 18px 14px"></div>
+        </section>
+        <section class="section"><div class="section-head"><h3>Abonnements actifs</h3></div><div class="table-wrap"><table><thead><tr><th>Boutique</th><th>Pays / ville</th><th>Activé le</th><th>Expire le</th><th>Jours restants</th><th>Action</th></tr></thead><tbody id="activeBody"></tbody></table></div></section>
+        <section class="section"><div class="section-head"><h3>Abonnements expirés (retour au mode gratuit)</h3></div><div class="table-wrap"><table><thead><tr><th>Boutique</th><th>Pays / ville</th><th>Activé le</th><th>Expiré le</th></tr></thead><tbody id="closedBody"></tbody></table></div></section>
+      </div>
+      <div id="supportView" class="hidden">
+        <section class="section"><div class="section-head"><h3>Messages reçus · Support Yaar-App</h3><button id="supportRefreshBtn" class="secondary">Actualiser</button></div><div class="table-wrap"><table><thead><tr><th>Utilisateur</th><th>Message</th><th>Reçu le</th><th>Statut</th><th>Réponse</th><th>Action</th></tr></thead><tbody id="supportBody"></tbody></table></div></section>
+      </div>
+      <div class="footer">Yaar-App · Interface Super Admin · Les actions sensibles sont contrôlées côté Supabase.</div>
+    </main>
+  </div>
+
+
+<script>
+const SUPABASE_URL='https://lhqnjzuwndgtcjeyyjwj.supabase.co';
+const SUPABASE_KEY='sb_publishable_uMFmqZ90XeOjcGaRFNl5Ig_aboyZD1q';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let users=[],shops=[],products=[],supportMessages=[],keyRows=[],parsedKeys=null;
+const $=id=>document.getElementById(id);
+const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const date=v=>v?new Date(v).toLocaleDateString('fr-FR'):'—';
+const dateTime=v=>v?new Date(v).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}):'—';
+const daysLeft=v=>v?Math.max(0,Math.ceil((new Date(v)-Date.now())/864e5)):null;
+const isLiveCert=s=>s.certification_status==='CERTIFIED'&&(!s.certification_expires_at||new Date(s.certification_expires_at)>Date.now());
+const ownerName=uid=>{const u=users.find(x=>x.id===uid);return u?`${u.first_name}${u.email?' · '+u.email:''}`:String(uid||'').slice(0,8)+'…'};
+function setLoginError(m){$('loginError').textContent=m||''}
+async function login(){
+  setLoginError(''); const email=$('email').value.trim().toLowerCase(), password=$('password').value;
+  if(!email||!password){setLoginError('Renseignez l’email et le mot de passe.');return}
+  $('loginBtn').disabled=true;$('loginBtn').textContent='Connexion…';
+  const {error}=await db.auth.signInWithPassword({email,password});
+  $('loginBtn').disabled=false;$('loginBtn').textContent='Se connecter';
+  if(error){setLoginError('Connexion refusée : '+error.message);return}
+  await showApp();
+}
+async function showApp(){
+  const {data:{user}}=await db.auth.getUser(); if(!user)return;
+  $('adminEmail').textContent=user.email||'';
+  // Vérification explicite du rôle côté Supabase, sans exposer la table yaar_admins.
+  const role=await db.rpc('is_yaar_admin');
+  if(role.error || role.data !== true){await db.auth.signOut();setLoginError('Ce compte n’est pas autorisé comme administrateur. Vérifiez yaar_admins dans Supabase.');return}
+  $('loginView').classList.add('hidden');$('appView').classList.remove('hidden');await refresh();
+}
+async function refresh(){
+  // Passe en « expiré » les abonnements dont la date de fin est dépassée (en plus de la tâche planifiée Supabase).
+  await db.rpc('expire_shop_certifications');
+  const [u,s,p,sm]=await Promise.all([
+    db.from('users').select('id,first_name,email,country,city,created_at').order('created_at',{ascending:false}),
+    db.from('shops').select('id,owner_uid,name,country,city,certification_status,created_at,certification_activated_at,certification_expires_at').order('created_at',{ascending:false}),
+    db.from('products').select('id,shop_id,owner_uid,shop_name,name,description,country,city,is_active,listing_type,created_at').order('created_at',{ascending:false}).limit(500),
+    db.from('support_messages').select('id,user_uid,message,status,admin_reply,created_at,replied_at').order('created_at',{ascending:false}).limit(500)
+  ]);
+  if(u.error||s.error||p.error||sm.error){alert('Erreur de chargement : '+(u.error?.message||s.error?.message||p.error?.message||sm.error?.message));return}
+  users=u.data||[];shops=s.data||[];products=p.data||[];supportMessages=sm.data||[];
+  $('usersTotal').textContent=users.length.toLocaleString('fr-FR');$('shopsTotal').textContent=shops.length.toLocaleString('fr-FR');
+  $('productsTotal').textContent=products.filter(x=>x.is_active&&x.listing_type==='PRODUCT').length.toLocaleString('fr-FR');
+  $('immoTotal').textContent=products.filter(x=>x.is_active&&['IMMO_SALE','IMMO_RENT'].includes(x.listing_type)).length.toLocaleString('fr-FR');
+  renderCountries(users);renderUsers();renderShops();renderProducts();renderSupportMessages();renderSubscriptions();await loadKeys();
+}
+function renderCountries(users){const m={};users.forEach(u=>m[u.country]=(m[u.country]||0)+1);const names=Object.entries(m).sort((a,b)=>b[1]-a[1]);$('countries').innerHTML=names.length?names.map(([k,v])=>`<div class="country"><span>${esc(k.replaceAll('_',' '))}</span><b>${v}</b></div>`).join(''):'<div class="empty">Aucun utilisateur.</div>'}
+function renderUsers(){const q=$('userSearch').value.trim().toLowerCase();const list=users.filter(u=>!q||(`${u.first_name} ${u.email} ${u.country} ${u.city}`).toLowerCase().includes(q));$('usersBody').innerHTML=list.length?list.map(u=>`<tr><td><b>${esc(u.first_name)}</b></td><td>${esc(u.email||'—')}</td><td>${esc(u.country)} · ${esc(u.city)}</td><td>${date(u.created_at)}</td><td><button class="danger" onclick="deleteUser('${u.id}','${esc(u.first_name).replace(/'/g,"\'")}')">Supprimer</button></td></tr>`).join(''):'<tr><td colspan="5" class="empty">Aucun utilisateur correspondant.</td></tr>'}
+async function deleteUser(id,name){if(!confirm(`Supprimer définitivement le compte « ${name} » ?\n\nCette action supprime son compte Supabase et les données liées.`))return;const {error}=await db.rpc('admin_delete_user',{p_user_id:id});if(error){alert('Suppression refusée : '+error.message);return}await refresh()}
+function renderShops(){const q=$('shopSearch').value.trim().toLowerCase(),f=$('shopFilter').value;let list=shops.filter(s=>(f==='ALL'||s.certification_status===f)&&(!q||(`${s.name} ${s.country} ${s.city}`).toLowerCase().includes(q)));$('shopsBody').innerHTML=list.length?list.map(s=>`<tr><td>${s.certification_status==='CERTIFIED'?'<img src="admin/verified-badge.png" alt="Vérifiée" title="Boutique vérifiée" style="width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:6px">':''}<b>${esc(s.name)}</b><br><span class="badge gray">${date(s.created_at)}</span></td><td>${esc(s.owner_uid).slice(0,8)}…</td><td>${esc(s.country)} · ${esc(s.city)}</td><td>${statusBadge(s.certification_status)}${s.certification_status==='CERTIFIED'&&s.certification_expires_at?`<br><small>expire le ${date(s.certification_expires_at)} · ${daysLeft(s.certification_expires_at)} j</small>`:''}</td><td>${s.certification_status==='CERTIFIED'?`<button class="secondary" onclick="verifyShop('${s.id}',false)">Retirer l'abonnement</button>`:`<button class="primary" onclick="verifyShop('${s.id}',true)">Offrir 30 jours</button>`}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Aucune boutique correspondante.</td></tr>'}
+function statusBadge(s){const cls=s==='CERTIFIED'?'green':s==='PENDING'?'orange':s==='REJECTED'?'red':'gray';const txt=s==='CERTIFIED'?'✓ Abonnement actif':s==='PENDING'?'En étude':s==='REJECTED'?'Refusée':s==='EXPIRED'?'Expiré':'Mode gratuit';return `<span class="badge ${cls}">${txt}</span>`}
+function renderSubscriptions(){
+  const active=shops.filter(isLiveCert).sort((a,b)=>new Date(a.certification_expires_at||'2999-01-01')-new Date(b.certification_expires_at||'2999-01-01'));
+  $('keysLive').textContent=active.length.toLocaleString('fr-FR');
+  $('activeBody').innerHTML=active.length?active.map(s=>{const d=daysLeft(s.certification_expires_at);return `<tr><td><img src="admin/verified-badge.png" alt="" style="width:20px;height:20px;vertical-align:middle;margin-right:6px"><b>${esc(s.name)}</b></td><td>${esc(s.country)} · ${esc(s.city)}</td><td>${dateTime(s.certification_activated_at)}</td><td>${date(s.certification_expires_at)}</td><td><span class="days ${d!==null&&d<5?'low':''}">${d===null?'—':d+' jour'+(d>1?'s':'')}</span></td><td class="actions"><button class="secondary" onclick="verifyShop('${s.id}',true)">+30 jours</button><button class="danger" onclick="verifyShop('${s.id}',false)">Retirer</button></td></tr>`}).join(''):'<tr><td colspan="6" class="empty">Aucun abonnement actif.</td></tr>';
+  const closed=shops.filter(s=>s.certification_status==='EXPIRED'||(s.certification_status==='CERTIFIED'&&!isLiveCert(s)));
+  $('closedBody').innerHTML=closed.length?closed.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.country)} · ${esc(s.city)}</td><td>${dateTime(s.certification_activated_at)}</td><td>${date(s.certification_expires_at)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Aucun.</td></tr>';
+}
+
+// ---------- Clés d'activation ----------
+const normKey=raw=>{const c=String(raw||'').toUpperCase().replace(/\s+/g,'');return /^[A-Z]{4}[0-9]{4}$/.test(c)?c.slice(0,4)+' '+c.slice(4):null};
+function parseKeyText(text){
+  const valid=[],invalid=[],seen=new Set();let duplicates=0,lines=0;
+  String(text).replace(/^\uFEFF/,'').split(/\r?\n/).forEach((raw,i)=>{
+    const line=raw.trim();if(!line)return;lines++;
+    const k=normKey(line);
+    if(!k){invalid.push({n:i+1,v:line});return}
+    if(seen.has(k)){duplicates++;return}
+    seen.add(k);valid.push(k);
+  });
+  return {valid,invalid,duplicates,lines};
+}
+function renderImportPreview(){
+  const p=parsedKeys;
+  $('keyResult').innerHTML='';
+  if(!p){$('keyPreview').innerHTML='';$('keyImportBtn').disabled=true;return}
+  let html=`<b>${esc(p.fileName||'Fichier')}</b> : ${p.lines} ligne(s) lue(s) · <span style="color:var(--green);font-weight:800">${p.valid.length} clé(s) valide(s)</span> · ${p.duplicates} doublon(s) dans le fichier · <span style="color:var(--danger);font-weight:800">${p.invalid.length} invalide(s)</span>`;
+  if(p.invalid.length)html+='<br>Lignes invalides (aperçu) : '+p.invalid.slice(0,8).map(x=>`ligne ${x.n} « ${esc(x.v)} »`).join(' · ')+(p.invalid.length>8?' …':'');
+  $('keyPreview').innerHTML=html;
+  $('keyImportBtn').disabled=!p.valid.length;
+}
+async function importKeys(){
+  if(!parsedKeys||!parsedKeys.valid.length){alert('Aucune clé valide à envoyer.');return}
+  const total=parsedKeys.valid.length;
+  if(!confirm(`Envoyer ${total} clé(s) d'activation vers Yaar-App ?\n\nChaque clé achetée puis saisie par un utilisateur activera 30 jours d'abonnement.`))return;
+  const btn=$('keyImportBtn');btn.disabled=true;
+  const batch=$('keyBatch').value.trim()||parsedKeys.fileName||null;
+  let ins=0,dup=0,inv=0,failed=null;
+  for(let i=0;i<total;i+=500){
+    btn.textContent=`Envoi… ${Math.min(i+500,total)} / ${total}`;
+    const {data,error}=await db.rpc('admin_import_activation_keys',{p_keys:parsedKeys.valid.slice(i,i+500),p_batch:batch});
+    if(error){failed=error.message;break}
+    ins+=data.inserted||0;dup+=data.duplicates||0;inv+=data.invalid||0;
+  }
+  btn.textContent='Envoyer vers Yaar-App';
+  $('keyResult').innerHTML=(failed?`<span style="color:var(--danger);font-weight:800">Envoi interrompu : ${esc(failed)}</span><br>`:'')+`Résultat : <b style="color:var(--green)">${ins} clé(s) ajoutée(s)</b> · ${dup} déjà présente(s) en base (ignorées) · ${inv} refusée(s).`;
+  $('keyFile').value='';parsedKeys=null;$('keyPreview').innerHTML='';btn.disabled=true;
+  await loadKeys();
+}
+async function loadKeys(){
+  let q=$('keySearch').value.trim().toUpperCase();
+  if(q&&!q.includes(' ')&&q.length>4)q=q.slice(0,4)+' '+q.slice(4);
+  const f=$('keyFilter').value;
+  let req=db.from('activation_keys').select('key_code,status,batch_label,created_at,used_at,shops:used_by_shop(name,country,city)').order(f==='USED'?'used_at':'created_at',{ascending:false}).limit(300);
+  if(f!=='ALL')req=req.eq('status',f);
+  if(q)req=req.ilike('key_code','%'+q+'%');
+  const count=s=>db.from('activation_keys').select('key_code',{count:'exact',head:true}).eq('status',s);
+  const [rows,a,u,r]=await Promise.all([req,count('AVAILABLE'),count('USED'),count('REVOKED')]);
+  if(rows.error){$('keysBody').innerHTML=`<tr><td colspan="7" class="empty">Erreur : ${esc(rows.error.message)}<br><small>Avez-vous exécuté Yaar-App-Supabase-V1.6.0-ACTIVATION-KEYS.sql ?</small></td></tr>`;return}
+  keyRows=rows.data||[];
+  $('keysAvailable').textContent=(a.count||0).toLocaleString('fr-FR');$('keysUsed').textContent=(u.count||0).toLocaleString('fr-FR');$('keysRevoked').textContent=(r.count||0).toLocaleString('fr-FR');
+  $('certCount').textContent=(a.count||0).toLocaleString('fr-FR');
+  renderKeys(a.count+u.count+r.count);
+}
+function renderKeys(total){
+  const badge=s=>s==='AVAILABLE'?'<span class="badge green">Disponible</span>':s==='USED'?'<span class="badge orange">Utilisée</span>':'<span class="badge red">Révoquée</span>';
+  $('keysBody').innerHTML=keyRows.length?keyRows.map(k=>`<tr><td><b style="font-family:ui-monospace,monospace;font-size:14px">${esc(k.key_code)}</b></td><td>${badge(k.status)}</td><td>${esc(k.batch_label||'—')}</td><td>${dateTime(k.created_at)}</td><td>${dateTime(k.used_at)}</td><td>${k.shops?esc(k.shops.name)+'<br><small>'+esc(k.shops.country)+' · '+esc(k.shops.city)+'</small>':'—'}</td><td>${k.status==='AVAILABLE'?`<button class="danger" onclick="revokeKey('${esc(k.key_code)}')">Révoquer</button>`:''}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Aucune clé correspondante.</td></tr>';
+  $('keysMore').textContent=total>keyRows.length?`Affichage des ${keyRows.length} clés les plus récentes sur ${total.toLocaleString('fr-FR')}. Utilisez la recherche pour retrouver une clé précise.`:'';
+}
+async function revokeKey(code){
+  if(!confirm(`Révoquer la clé « ${code} » ?\n\nElle ne pourra plus être utilisée (utile en cas de remboursement ou de clé compromise).`))return;
+  const {data,error}=await db.rpc('admin_revoke_activation_key',{p_key:code});
+  if(error){alert('Action refusée : '+error.message);return}
+  if(!data)alert('Cette clé n\'est plus disponible (déjà utilisée ou révoquée).');
+  await loadKeys();
+}
+function renderProducts(){const q=$('productSearch').value.trim().toLowerCase(),f=$('productFilter').value;let list=products.filter(p=>{const text=`${p.name} ${p.shop_name} ${p.country} ${p.city}`.toLowerCase();if(q&&!text.includes(q))return false;if(f==='PRODUCT'&&p.listing_type!=='PRODUCT')return false;if(f==='IMMO'&&!['IMMO_SALE','IMMO_RENT'].includes(p.listing_type))return false;if(f==='ACTIVE'&&!p.is_active)return false;if(f==='INACTIVE'&&p.is_active)return false;return true});$('productsBody').innerHTML=list.length?list.map(p=>`<tr><td><b>${esc(p.name)}</b><br><small>${esc((p.description||'').slice(0,80))}${(p.description||'').length>80?'…':''}</small></td><td>${esc(p.shop_name)}</td><td>${esc(p.country)} · ${esc(p.city)}</td><td>${p.listing_type==='PRODUCT'?'<span class="badge orange">Produit</span>':`<span class="badge green">${p.listing_type==='IMMO_SALE'?'Immo · Vente':'Immo · Location'}</span>`}</td><td>${p.is_active?'<span class="badge green">Actif</span>':'<span class="badge gray">Désactivé</span>'}</td><td>${date(p.created_at)}</td><td><button class="danger" onclick="deleteProduct('${p.id}','${esc(p.name).replace(/'/g,"\\'")}')">Supprimer</button></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Aucune publication correspondante.</td></tr>'}
+async function verifyShop(id,on){if(!confirm(on?'Offrir 30 jours d’abonnement à cette boutique (sans clé) ? Les jours s’ajoutent à un abonnement déjà en cours.':'Retirer l’abonnement et le badge certifié de cette boutique ? Elle repasse en mode gratuit.'))return;const {error}=await db.rpc('admin_set_shop_certified',{p_shop_id:id,p_certified:on});if(error){alert('Action refusée : '+error.message);return}await refresh()}
+async function deleteProduct(id,name){if(!confirm(`Supprimer définitivement « ${name} » ?\n\nCette action retire la publication de Yaar-App.`))return;const {error}=await db.from('products').delete().eq('id',id);if(error){alert('Suppression refusée : '+error.message);return}await refresh()}
+function renderSupportMessages(){
+  const unread=supportMessages.filter(m=>m.status==='NEW').length;
+  $('supportCount').textContent=unread.toLocaleString('fr-FR');
+  $('supportBody').innerHTML=supportMessages.length?supportMessages.map(m=>{
+    const u=users.find(x=>x.id===m.user_uid);
+    return `<tr><td><b>${esc(u?.first_name||'Utilisateur')}</b><br><small>${esc(u?.email||m.user_uid)}</small></td><td>${esc(m.message)}</td><td>${date(m.created_at)}</td><td>${m.status==='REPLIED'?'<span class="badge green">Répondu</span>':m.status==='READ'?'<span class="badge orange">Lu</span>':'<span class="badge orange">Nouveau</span>'}</td><td>${m.admin_reply?esc(m.admin_reply):'<span class="badge gray">Aucune</span>'}</td><td><button class="primary" onclick="replyToSupport('${m.id}')">${m.admin_reply?'Modifier la réponse':'Répondre'}</button></td></tr>`
+  }).join(''):'<tr><td colspan="6" class="empty">Aucun message reçu.</td></tr>';
+}
+async function replyToSupport(id){
+  const item=supportMessages.find(m=>m.id===id); if(!item)return;
+  const reply=prompt("Réponse à envoyer à l'utilisateur (1000 caractères maximum) :",item.admin_reply||'');
+  if(reply===null)return;
+  const clean=reply.trim();
+  if(!clean){alert('La réponse ne peut pas être vide.');return}
+  if(clean.length>1000){alert('La réponse ne doit pas dépasser 1000 caractères.');return}
+  const {error}=await db.from('support_messages').update({admin_reply:clean,status:'REPLIED',replied_at:new Date().toISOString()}).eq('id',id);
+  if(error){alert('Réponse refusée : '+error.message);return}
+  await refresh();
+}
+$('loginBtn').onclick=login;$('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});$('refreshBtn').onclick=refresh;$('supportRefreshBtn').onclick=refresh;$('logoutBtn').onclick=async()=>{await db.auth.signOut();location.reload()};$('userSearch').oninput=renderUsers;$('shopSearch').oninput=renderShops;$('shopFilter').onchange=renderShops;$('productSearch').oninput=renderProducts;$('productFilter').onchange=renderProducts;
+function showTab(name){
+  for(const [t,v] of [['dashboard','dashboardView'],['keys','keysView'],['support','supportView']]){
+    $(v).classList.toggle('hidden',t!==name);$(t+'Tab').classList.toggle('active',t===name);
+  }
+}
+$('dashboardTab').onclick=()=>showTab('dashboard');
+$('keysTab').onclick=async()=>{showTab('keys');await refresh()};
+$('supportTab').onclick=async()=>{showTab('support');await db.from('support_messages').update({status:'READ'}).eq('status','NEW');await refresh()};
+$('keysRefreshBtn').onclick=refresh;$('keyImportBtn').onclick=importKeys;$('keyFilter').onchange=loadKeys;
+let keySearchTimer=null;$('keySearch').oninput=()=>{clearTimeout(keySearchTimer);keySearchTimer=setTimeout(loadKeys,350)};
+$('keyFile').onchange=async e=>{const f=e.target.files[0];if(!f){parsedKeys=null;renderImportPreview();return}if(f.size>5*1024*1024){alert('Fichier trop volumineux (5 Mo maximum).');e.target.value='';return}parsedKeys=parseKeyText(await f.text());parsedKeys.fileName=f.name;renderImportPreview()};
+(async()=>{const {data:{session}}=await db.auth.getSession();if(session)await showApp()})();
+</script>
+</body>
+</html>
