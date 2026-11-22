@@ -305,14 +305,9 @@ class YaarRepository(context: Context) {
         if (name.isBlank() || description.isBlank() || imageUrl.isBlank() || price <= 0) {
             return AddProductResult.Error("Merci de remplir tous les champs (photo, nom, description, prix).")
         }
-        if (product.listingType == "PRODUCT") {
-            if (productDao.countActiveForShop(shop.id) >= shop.maxProducts) {
-                return AddProductResult.LimitReached(shop.maxProducts)
-            }
-        } else {
-            if (productDao.countActiveImmoForShop(shop.id) >= shop.maxImmoListings) {
-                return AddProductResult.LimitReached(shop.maxImmoListings)
-            }
+        val activeCount = productDao.countActiveForShop(shop.id)
+        if (activeCount >= shop.maxProducts) {
+            return AddProductResult.LimitReached(shop.maxProducts)
         }
         // Mode gratuit : ville de la boutique + 5 villes au maximum.
         // Abonnement actif (clé d'activation) : toutes les villes de son pays, sans limite.

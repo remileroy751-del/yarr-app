@@ -586,6 +586,10 @@ class YaarViewModel(private val repository: YaarRepository) : ViewModel() {
         return true
     }
 
+    fun cancelPendingPayment() {
+        _pendingPayment.value = null
+    }
+
     suspend fun createPayDunyaPayment(): Pair<String, String> {
         val payment = _pendingPayment.value ?: error("Aucun paiement en attente.")
         val user = _currentUser.value ?: error("Aucun compte connecté.")
